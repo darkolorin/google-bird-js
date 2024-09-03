@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.0.0'; // Increment this when deploying a new version
+const GAME_VERSION = '1.0.1'; // Increment this when deploying a new version
 
 const gameContainer = document.getElementById('game-container');
 const canvas = document.getElementById('gameCanvas');
@@ -8,7 +8,19 @@ const scoreDisplay = document.getElementById('score');
 let bird, pipeWidth, pipeGap;
 let cloudPositions = [];
 
-const tg = window.Telegram.WebApp;
+// Modify the tg initialization
+const tg = window.Telegram ? window.Telegram.WebApp : {
+    // Mock Telegram WebApp methods for desktop testing
+    ready: () => console.log('Mock Telegram WebApp ready'),
+    showPopup: (params, callback) => {
+        alert(params.message);
+        if (callback) callback();
+    },
+    HapticFeedback: {
+        impactOccurred: () => console.log('Mock haptic feedback')
+    },
+    setBackgroundColor: (color) => console.log('Mock set background color:', color)
+};
 
 function initializeGame() {
     resizeCanvas();
@@ -181,6 +193,51 @@ function update() {
     });
 }
 
+// Add this new function to create and show the end screen
+function showEndScreen(finalScore) {
+    const endScreen = document.createElement('div');
+    endScreen.id = 'end-screen';
+    endScreen.style.position = 'absolute';
+    endScreen.style.top = '0';
+    endScreen.style.left = '0';
+    endScreen.style.width = '100%';
+    endScreen.style.height = '100%';
+    endScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    endScreen.style.display = 'flex';
+    endScreen.style.flexDirection = 'column';
+    endScreen.style.justifyContent = 'center';
+    endScreen.style.alignItems = 'center';
+    endScreen.style.color = 'white';
+    endScreen.style.fontFamily = 'Arial, sans-serif';
+
+    const gameOverText = document.createElement('h1');
+    gameOverText.textContent = 'Game Over';
+    gameOverText.style.marginBottom = '20px';
+
+    const scoreText = document.createElement('p');
+    scoreText.textContent = `Final Score: $${finalScore.toFixed(2)} Billion`;
+    scoreText.style.fontSize = '24px';
+    scoreText.style.marginBottom = '30px';
+
+    const playAgainButton = document.createElement('button');
+    playAgainButton.textContent = 'Play Again';
+    playAgainButton.style.padding = '10px 20px';
+    playAgainButton.style.fontSize = '18px';
+    playAgainButton.style.cursor = 'pointer';
+    playAgainButton.onclick = function() {
+        gameContainer.removeChild(endScreen);
+        initializeGame();
+        gameLoop();
+    };
+
+    endScreen.appendChild(gameOverText);
+    endScreen.appendChild(scoreText);
+    endScreen.appendChild(playAgainButton);
+
+    gameContainer.appendChild(endScreen);
+}
+
+// Modify the resetGame function
 function resetGame() {
     // Store the final score before resetting
     const finalScore = score;
@@ -191,31 +248,20 @@ function resetGame() {
     score = 0;
     updateScoreDisplay();
     
-    // Show an alert when the game is over with the final score and a refresh button
-    tg.showPopup({
-        title: 'Game Over',
-        message: `Your final score: $${finalScore.toFixed(2)} Billion`,
-        buttons: [{
-            type: 'ok',
-            text: 'Play Again'
-        }]
-    }, function() {
-        // This function will be called when the user clicks "Play Again"
-        initializeGame();
-        gameLoop();
-    });
+    // Show the end screen
+    showEndScreen(finalScore);
 
-    // Display final score on the canvas
-    context.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    context.font = 'bold 24px Arial';
-    context.fillStyle = 'white';
-    context.textAlign = 'center';
-    context.fillText(`Game Over`, canvas.width / 2, canvas.height / 2 - 50);
-    context.fillText(`Final Score: $${finalScore.toFixed(2)} Billion`, canvas.width / 2, canvas.height / 2);
-    context.font = '18px Arial';
-    context.fillText('Tap to play again', canvas.width / 2, canvas.height / 2 + 40);
+    // Show Telegram popup if available
+    if (tg.showPopup) {
+        tg.showPopup({
+            title: 'Game Over',
+            message: `Your final score: $${finalScore.toFixed(2)} Billion`,
+            buttons: [{
+                type: 'ok',
+                text: 'Close'
+            }]
+        });
+    }
 }
 
 function draw() {
@@ -225,27 +271,24 @@ function draw() {
     drawPipes();
 }
 
+// Modify the handleInput function
 function handleInput(event) {
-    event.preventDefault(); // Prevent default touch behavior
+    event.preventDefault(); // Prevent default behavior
     
-    if (score === 0 && bird.y === canvas.height / 2) {
-        // The game is over, so restart
-        initializeGame();
-        gameLoop();
-    } else {
-        // Normal gameplay
-        bird.velocity = bird.lift;
-        
-        // Add haptic feedback
-        if (tg.HapticFeedback) {
-            tg.HapticFeedback.impactOccurred('light');
-        }
+    // Check if the end screen is visible
+    const endScreen = document.getElementById('end-screen');
+    if (endScreen) {
+        return; // Don't handle input if the end screen is visible
+    }
+    
+    // Normal gameplay
+    bird.velocity = bird.lift;
+    
+    // Add haptic feedback
+    if (tg.HapticFeedback) {
+        tg.HapticFeedback.impactOccurred('light');
     }
 }
-
-// Remove the keydown event listener and related function
-// window.removeEventListener('keydown', handleKeyDown);
-// function handleKeyDown(event) { ... }
 
 function gameLoop() {
     console.log('Game loop running'); // Add this line
@@ -269,13 +312,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear sessionStorage cache
     sessionStorage.clear();
     
-    // Initialize Telegram Mini App
-    if (window.Telegram && window.Telegram.WebApp) {
-        tg.ready();
-    } else {
-        console.warn('Telegram WebApp is not available. Running in standalone mode.');
-    }
+    // Initialize Telegram Mini App or mock for desktop
+    tg.ready();
     
     initializeGame();
     gameLoop();
+
+    // Add event listeners for both touch and mouse events
+    document.addEventListener('touchstart', handleInput);
+    document.addEventListener('click', handleInput);
 });
