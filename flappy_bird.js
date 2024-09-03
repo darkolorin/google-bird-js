@@ -3,34 +3,59 @@ const canvas = document.getElementById('gameCanvas');
 const context = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('score');
 
+let bird, pipeWidth, pipeGap;
+let cloudPositions = [];
+
+function initializeGame() {
+    resizeCanvas();
+    
+    bird = {
+        x: canvas.width * 0.2,
+        y: canvas.height / 2,
+        width: canvas.width * 0.1,
+        height: canvas.width * 0.075,
+        gravity: 0.0008 * canvas.height, // Reduced gravity
+        lift: -0.015 * canvas.height, // Reduced lift
+        velocity: 0,
+        image: new Image()
+    };
+
+    bird.image.src = 'images/google_bird.png';
+    bird.image.onerror = () => console.error('Failed to load bird image');
+
+    pipeWidth = canvas.width * 0.15;
+    pipeGap = canvas.height * 0.35; // Increased pipe gap
+
+    // Initialize cloud positions
+    cloudPositions = Array(5).fill().map(() => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * (canvas.height / 2),
+        size: Math.random() * 50 + 25,
+        speed: Math.random() * 0.5 + 0.1
+    }));
+}
+
 function resizeCanvas() {
     canvas.width = gameContainer.clientWidth;
     canvas.height = gameContainer.clientHeight;
-    console.log('Canvas size:', canvas.width, 'x', canvas.height); // Add this line
-    // Adjust game elements based on new canvas size
-    bird.width = canvas.width * 0.1;
-    bird.height = bird.width * 0.75;
-    bird.x = canvas.width * 0.2;
+    console.log('Canvas size:', canvas.width, 'x', canvas.height);
+    
+    if (bird) {
+        bird.width = canvas.width * 0.1;
+        bird.height = bird.width * 0.75;
+        bird.x = canvas.width * 0.2;
+    }
+    
     pipeWidth = canvas.width * 0.15;
-    pipeGap = canvas.height * 0.28;
+    pipeGap = canvas.height * 0.35; // Increased pipe gap
 }
 
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-const bird = {
-    x: canvas.width * 0.2,
-    y: canvas.height / 2,
-    width: canvas.width * 0.1,
-    height: canvas.width * 0.075,
-    gravity: 0.0015 * canvas.height,
-    lift: -0.03 * canvas.height,
-    velocity: 0,
-    image: new Image()
-};
-
-bird.image.src = 'images/google_bird.png';
-bird.image.onerror = () => console.error('Failed to load bird image');
+window.addEventListener('resize', function() {
+    resizeCanvas();
+    if (bird) {
+        bird.y = canvas.height / 2; // Reset bird position on resize
+    }
+});
 
 const pipeImages = [
     'images/bing_pipe.png',
@@ -39,19 +64,39 @@ const pipeImages = [
 ];
 
 const pipes = [];
-const pipeWidth = canvas.width * 0.15;
-const pipeGap = canvas.height * 0.28; // Increased gap for easier gameplay
-const pipeSpeed = 3; // Reduced speed for easier gameplay
+const pipeSpeed = 2; // Reduced pipe speed
 
 let score = 0;
 
 function drawBackground() {
-    const background = new Image();
-    background.src = 'images/sky_background.png'; // Add a background image
-    background.onload = () => {
-        context.drawImage(background, 0, 0, canvas.width, canvas.height);
-    };
-    background.onerror = () => console.error('Failed to load background image');
+    const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#87CEEB');  // Sky blue at the top
+    gradient.addColorStop(1, '#E0F6FF');  // Lighter blue at the bottom
+
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Add some clouds
+    drawClouds();
+}
+
+function drawClouds() {
+    context.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    
+    cloudPositions.forEach(cloud => {
+        context.beginPath();
+        context.arc(cloud.x, cloud.y, cloud.size, 0, Math.PI * 2);
+        context.arc(cloud.x + cloud.size * 0.5, cloud.y - cloud.size * 0.5, cloud.size * 0.6, 0, Math.PI * 2);
+        context.arc(cloud.x + cloud.size, cloud.y, cloud.size * 0.8, 0, Math.PI * 2);
+        context.fill();
+
+        // Move the cloud
+        cloud.x -= cloud.speed;
+        if (cloud.x + cloud.size * 2 < 0) {
+            cloud.x = canvas.width + cloud.size;
+            cloud.y = Math.random() * (canvas.height / 2);
+        }
+    });
 }
 
 function drawBird() {
@@ -64,13 +109,9 @@ function drawBird() {
 
 function drawPipes() {
     pipes.forEach(pipe => {
-        const pipeImage = new Image();
-        pipeImage.src = pipe.image;
-        pipeImage.onload = () => {
-            context.drawImage(pipeImage, pipe.x, 0, pipeWidth, pipe.height);
-            context.drawImage(pipeImage, pipe.x, pipe.height + pipeGap, pipeWidth, canvas.height - pipe.height - pipeGap);
-        };
-        pipeImage.onerror = () => console.error('Failed to load pipe image');
+        context.fillStyle = '#75C147'; // Green color for pipes
+        context.fillRect(pipe.x, 0, pipeWidth, pipe.height); // Top pipe
+        context.fillRect(pipe.x, pipe.height + pipeGap, pipeWidth, canvas.height - pipe.height - pipeGap); // Bottom pipe
     });
 }
 
@@ -86,11 +127,10 @@ function update() {
         pipe.x -= pipeSpeed;
     });
 
-    if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - canvas.width * 0.4) {
-        const pipeHeight = Math.floor(Math.random() * (canvas.height - pipeGap - canvas.height * 0.2)) + canvas.height * 0.1;
-        const pipeImage = pipeImages[Math.floor(Math.random() * pipeImages.length)];
-        pipes.push({ x: canvas.width, height: pipeHeight, image: pipeImage });
-        score += 0.05; // Increase score more quickly
+    if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - canvas.width * 0.5) { // Increased distance between pipes
+        const pipeHeight = Math.floor(Math.random() * (canvas.height - pipeGap - canvas.height * 0.3)) + canvas.height * 0.15; // Adjusted pipe height range
+        pipes.push({ x: canvas.width, height: pipeHeight });
+        score += 0.05;
         updateScoreDisplay();
     }
 
@@ -126,6 +166,20 @@ function draw() {
 
 function handleInput() {
     bird.velocity = bird.lift;
+    // Add a small cooldown to prevent rapid flapping
+    canvas.removeEventListener('touchstart', handleInput);
+    window.removeEventListener('keydown', handleKeyDown);
+    setTimeout(() => {
+        canvas.addEventListener('touchstart', handleInput);
+        window.addEventListener('keydown', handleKeyDown);
+    }, 250); // 250ms cooldown
+}
+
+function handleKeyDown(event) {
+    if (event.code === 'Space') {
+        event.preventDefault();
+        handleInput();
+    }
 }
 
 function gameLoop() {
@@ -139,12 +193,7 @@ function updateScoreDisplay() {
     scoreDisplay.innerText = `Revenue: $${score.toFixed(2)} Billion`;
 }
 
-window.addEventListener('keydown', function (event) {
-    if (event.code === 'Space') {
-        handleInput();
-    }
-});
-
+window.addEventListener('keydown', handleKeyDown);
 canvas.addEventListener('touchstart', function (event) {
     event.preventDefault();
     handleInput();
@@ -152,7 +201,7 @@ canvas.addEventListener('touchstart', function (event) {
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded'); // Add this line
-    resizeCanvas();
+    initializeGame();
     resetGame();
     gameLoop();
 });
