@@ -1,3 +1,5 @@
+const GAME_VERSION = '1.0.0'; // Increment this when deploying a new version
+
 const gameContainer = document.getElementById('game-container');
 const canvas = document.getElementById('gameCanvas');
 const context = canvas.getContext('2d');
@@ -20,7 +22,7 @@ function initializeGame() {
         image: new Image()
     };
 
-    bird.image.src = 'images/google_bird.png';
+    bird.image.src = `images/google_bird.png?v=${GAME_VERSION}`;
     bird.image.onerror = () => console.error('Failed to load bird image');
 
     pipeWidth = canvas.width * 0.15;
@@ -58,9 +60,9 @@ window.addEventListener('resize', function() {
 });
 
 const pipeImages = [
-    'images/bing_pipe.png',
-    'images/yahoo_pipe.png',
-    'images/duckduckgo_pipe.png'
+    `images/bing_pipe.png?v=${GAME_VERSION}`,
+    `images/yahoo_pipe.png?v=${GAME_VERSION}`,
+    `images/duckduckgo_pipe.png?v=${GAME_VERSION}`
 ];
 
 const pipes = [];
@@ -200,7 +202,25 @@ canvas.addEventListener('touchstart', function (event) {
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded'); // Add this line
+    console.log('DOM loaded');
+    console.log(`Game version: ${GAME_VERSION}`);
+    
+    // Clear localStorage cache
+    localStorage.clear();
+    
+    // Clear sessionStorage cache
+    sessionStorage.clear();
+    
+    // Attempt to clear application cache (if applicable)
+    if (window.applicationCache) {
+        window.applicationCache.addEventListener('updateready', function() {
+            if (window.applicationCache.status === window.applicationCache.UPDATEREADY) {
+                window.applicationCache.swapCache();
+                window.location.reload();
+            }
+        });
+    }
+    
     initializeGame();
     resetGame();
     gameLoop();
