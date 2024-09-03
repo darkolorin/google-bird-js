@@ -1,14 +1,29 @@
+const gameContainer = document.getElementById('game-container');
 const canvas = document.getElementById('gameCanvas');
 const context = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('score');
 
+function resizeCanvas() {
+    canvas.width = gameContainer.clientWidth;
+    canvas.height = gameContainer.clientHeight;
+    // Adjust game elements based on new canvas size
+    bird.width = canvas.width * 0.1;
+    bird.height = bird.width * 0.75;
+    bird.x = canvas.width * 0.2;
+    pipeWidth = canvas.width * 0.15;
+    pipeGap = canvas.height * 0.28;
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
 const bird = {
-    x: 50,
+    x: canvas.width * 0.2,
     y: canvas.height / 2,
-    width: 40,
-    height: 30,
-    gravity: 0.5,
-    lift: -10,
+    width: canvas.width * 0.1,
+    height: canvas.width * 0.075,
+    gravity: 0.0015 * canvas.height,
+    lift: -0.03 * canvas.height,
     velocity: 0,
     image: new Image()
 };
@@ -22,14 +37,24 @@ const pipeImages = [
 ];
 
 const pipes = [];
-const pipeWidth = 60;
-const pipeGap = 150;
-const pipeSpeed = 5;
+const pipeWidth = canvas.width * 0.15;
+const pipeGap = canvas.height * 0.28; // Increased gap for easier gameplay
+const pipeSpeed = 3; // Reduced speed for easier gameplay
 
 let score = 0;
 
+function drawBackground() {
+    const background = new Image();
+    background.src = 'images/sky_background.png'; // Add a background image
+    context.drawImage(background, 0, 0, canvas.width, canvas.height);
+}
+
 function drawBird() {
-    context.drawImage(bird.image, bird.x, bird.y, bird.width, bird.height);
+    context.save();
+    context.translate(bird.x + bird.width / 2, bird.y + bird.height / 2);
+    context.rotate(Math.min(Math.PI / 6, Math.max(-Math.PI / 6, bird.velocity * 0.1))); // Add rotation based on velocity
+    context.drawImage(bird.image, -bird.width / 2, -bird.height / 2, bird.width, bird.height);
+    context.restore();
 }
 
 function drawPipes() {
@@ -53,11 +78,11 @@ function update() {
         pipe.x -= pipeSpeed;
     });
 
-    if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width / 2) {
-        const pipeHeight = Math.floor(Math.random() * (canvas.height - pipeGap));
+    if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - canvas.width * 0.4) {
+        const pipeHeight = Math.floor(Math.random() * (canvas.height - pipeGap - canvas.height * 0.2)) + canvas.height * 0.1;
         const pipeImage = pipeImages[Math.floor(Math.random() * pipeImages.length)];
         pipes.push({ x: canvas.width, height: pipeHeight, image: pipeImage });
-        score += 0.01; // Increase score by 0.01 billion each time a new pipe is added
+        score += 0.05; // Increase score more quickly
         updateScoreDisplay();
     }
 
@@ -86,8 +111,13 @@ function resetGame() {
 
 function draw() {
     context.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground();
     drawBird();
     drawPipes();
+}
+
+function handleInput() {
+    bird.velocity = bird.lift;
 }
 
 function gameLoop() {
@@ -102,9 +132,17 @@ function updateScoreDisplay() {
 
 window.addEventListener('keydown', function (event) {
     if (event.code === 'Space') {
-        bird.velocity = bird.lift;
+        handleInput();
     }
 });
 
-resetGame();
-gameLoop();
+canvas.addEventListener('touchstart', function (event) {
+    event.preventDefault();
+    handleInput();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    resizeCanvas();
+    resetGame();
+    gameLoop();
+});
