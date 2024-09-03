@@ -160,16 +160,19 @@ function update() {
 }
 
 function resetGame() {
+    // Store the final score before resetting
+    const finalScore = score;
+    
     bird.y = canvas.height / 2;
     bird.velocity = 0;
     pipes.length = 0;
     score = 0;
     updateScoreDisplay();
     
-    // Show an alert when the game is over with a refresh button
+    // Show an alert when the game is over with the final score and a refresh button
     tg.showPopup({
         title: 'Game Over',
-        message: `Your score: $${score.toFixed(2)} Billion`,
+        message: `Your final score: $${finalScore.toFixed(2)} Billion`,
         buttons: [{
             type: 'ok',
             text: 'Play Again'
@@ -179,6 +182,18 @@ function resetGame() {
         initializeGame();
         gameLoop();
     });
+
+    // Display final score on the canvas
+    context.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    context.font = 'bold 24px Arial';
+    context.fillStyle = 'white';
+    context.textAlign = 'center';
+    context.fillText(`Game Over`, canvas.width / 2, canvas.height / 2 - 50);
+    context.fillText(`Final Score: $${finalScore.toFixed(2)} Billion`, canvas.width / 2, canvas.height / 2);
+    context.font = '18px Arial';
+    context.fillText('Tap to play again', canvas.width / 2, canvas.height / 2 + 40);
 }
 
 function draw() {
@@ -190,11 +205,19 @@ function draw() {
 
 function handleInput(event) {
     event.preventDefault(); // Prevent default touch behavior
-    bird.velocity = bird.lift;
     
-    // Add haptic feedback
-    if (tg.HapticFeedback) {
-        tg.HapticFeedback.impactOccurred('light');
+    if (score === 0 && bird.y === canvas.height / 2) {
+        // The game is over, so restart
+        initializeGame();
+        gameLoop();
+    } else {
+        // Normal gameplay
+        bird.velocity = bird.lift;
+        
+        // Add haptic feedback
+        if (tg.HapticFeedback) {
+            tg.HapticFeedback.impactOccurred('light');
+        }
     }
 }
 
