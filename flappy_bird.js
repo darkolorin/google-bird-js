@@ -27,8 +27,8 @@ function initializeGame() {
     bird.image.src = `images/google_bird.png?v=${GAME_VERSION}`;
     bird.image.onerror = () => console.error('Failed to load bird image');
 
-    pipeWidth = canvas.width * 0.15;
-    pipeGap = canvas.height * 0.35; // Increased pipe gap
+    pipeWidth = canvas.width * 0.2; // Increased pipe width for pixel art style
+    pipeGap = canvas.height * 0.35;
 
     // Initialize cloud positions
     cloudPositions = Array(5).fill().map(() => ({
@@ -79,15 +79,20 @@ const pipeSpeed = 2; // Reduced pipe speed
 let score = 0;
 
 function drawBackground() {
-    const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#87CEEB');  // Sky blue at the top
-    gradient.addColorStop(1, '#E0F6FF');  // Lighter blue at the bottom
-
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Add some clouds
+    drawPixelSky();
     drawClouds();
+}
+
+function drawPixelSky() {
+    const pixelSize = 10;
+    const colors = ['#87CEEB', '#97DEFA', '#A7EEFF'];
+    
+    for (let y = 0; y < canvas.height; y += pixelSize) {
+        for (let x = 0; x < canvas.width; x += pixelSize) {
+            context.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+            context.fillRect(x, y, pixelSize, pixelSize);
+        }
+    }
 }
 
 function drawClouds() {
@@ -119,10 +124,27 @@ function drawBird() {
 
 function drawPipes() {
     pipes.forEach(pipe => {
-        context.fillStyle = '#75C147'; // Green color for pipes
-        context.fillRect(pipe.x, 0, pipeWidth, pipe.height); // Top pipe
-        context.fillRect(pipe.x, pipe.height + pipeGap, pipeWidth, canvas.height - pipe.height - pipeGap); // Bottom pipe
+        drawPixelPipe(pipe.x, pipe.height, true);  // Top pipe
+        drawPixelPipe(pipe.x, pipe.height, false); // Bottom pipe
     });
+}
+
+function drawPixelPipe(x, height, isTop) {
+    const pixelSize = 5;
+    const pipeColors = ['#75C147', '#65B137', '#55A127'];
+    
+    for (let y = 0; y < (isTop ? height : canvas.height - height - pipeGap); y += pixelSize) {
+        for (let pipeX = x; pipeX < x + pipeWidth; pipeX += pixelSize) {
+            context.fillStyle = pipeColors[Math.floor(Math.random() * pipeColors.length)];
+            context.fillRect(pipeX, isTop ? y : height + pipeGap + y, pixelSize, pixelSize);
+        }
+    }
+    
+    // Draw pipe edge
+    context.fillStyle = '#4C8C2B';
+    for (let pipeX = x; pipeX < x + pipeWidth; pipeX += pixelSize) {
+        context.fillRect(pipeX, isTop ? height - pixelSize : height + pipeGap, pixelSize, pixelSize);
+    }
 }
 
 function update() {
