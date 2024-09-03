@@ -8,6 +8,8 @@ const scoreDisplay = document.getElementById('score');
 let bird, pipeWidth, pipeGap;
 let cloudPositions = [];
 
+const tg = window.Telegram.WebApp;
+
 function initializeGame() {
     resizeCanvas();
     
@@ -35,6 +37,12 @@ function initializeGame() {
         size: Math.random() * 50 + 25,
         speed: Math.random() * 0.5 + 0.1
     }));
+
+    // Set the background color of the Telegram Mini App
+    tg.setBackgroundColor('#87CEEB');
+
+    // Expand the Mini App to its maximum size
+    tg.expand();
 }
 
 function resizeCanvas() {
@@ -157,6 +165,9 @@ function resetGame() {
     pipes.length = 0;
     score = 0;
     updateScoreDisplay();
+    
+    // Show an alert when the game is over
+    tg.showAlert(`Game Over! Your score: $${score.toFixed(2)} Billion`);
 }
 
 function draw() {
@@ -168,6 +179,8 @@ function draw() {
 
 function handleInput() {
     bird.velocity = bird.lift;
+    // Add haptic feedback
+    tg.HapticFeedback.impactOccurred('light');
     // Add a small cooldown to prevent rapid flapping
     canvas.removeEventListener('touchstart', handleInput);
     window.removeEventListener('keydown', handleKeyDown);
@@ -211,15 +224,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear sessionStorage cache
     sessionStorage.clear();
     
-    // Attempt to clear application cache (if applicable)
-    if (window.applicationCache) {
-        window.applicationCache.addEventListener('updateready', function() {
-            if (window.applicationCache.status === window.applicationCache.UPDATEREADY) {
-                window.applicationCache.swapCache();
-                window.location.reload();
-            }
-        });
-    }
+    // Initialize Telegram Mini App
+    tg.ready();
     
     initializeGame();
     resetGame();
