@@ -22,6 +22,7 @@ const tg = window.Telegram ? window.Telegram.WebApp : {
     setBackgroundColor: (color) => console.log('Mock set background color:', color)
 };
 
+// Modify the initializeGame function
 function initializeGame() {
     resizeCanvas();
     
@@ -30,8 +31,8 @@ function initializeGame() {
         y: canvas.height / 2,
         width: canvas.width * 0.1,
         height: canvas.width * 0.075,
-        gravity: 0.0008 * canvas.height, // Reduced gravity
-        lift: -0.015 * canvas.height, // Reduced lift
+        gravity: 0.0006 * canvas.height, // Slightly reduced gravity for smoother gameplay
+        lift: -0.012 * canvas.height, // Adjusted lift
         velocity: 0,
         image: new Image()
     };
@@ -39,22 +40,22 @@ function initializeGame() {
     bird.image.src = `images/google_bird.png?v=${GAME_VERSION}`;
     bird.image.onerror = () => console.error('Failed to load bird image');
 
-    pipeWidth = canvas.width * 0.2; // Increased pipe width for pixel art style
-    pipeGap = canvas.height * 0.35;
+    pipeWidth = canvas.width * 0.15; // Slightly reduced pipe width
+    pipeGap = canvas.height * 0.32; // Slightly reduced pipe gap
 
     // Initialize cloud positions
-    cloudPositions = Array(5).fill().map(() => ({
+    cloudPositions = Array(3).fill().map(() => ({ // Reduced number of clouds
         x: Math.random() * canvas.width,
         y: Math.random() * (canvas.height / 2),
-        size: Math.random() * 50 + 25,
-        speed: Math.random() * 0.5 + 0.1
+        size: Math.random() * 40 + 20, // Slightly smaller clouds
+        speed: Math.random() * 0.3 + 0.1 // Slower cloud movement
     }));
 
     // Set the background color of the Telegram Mini App
     tg.setBackgroundColor('#87CEEB');
 
-    // Add touch event listener for the whole document
-    document.addEventListener('touchstart', handleInput);
+    // Use passive event listener for better scroll performance
+    document.addEventListener('touchstart', handleInput, { passive: false });
 }
 
 function resizeCanvas() {
@@ -90,18 +91,14 @@ const pipeSpeed = 2; // Reduced pipe speed
 
 let score = 0;
 
-function drawBackground() {
-    drawPixelSky();
-    drawClouds();
-}
-
+// Modify the drawPixelSky function
 function drawPixelSky() {
-    const pixelSize = 10;
+    const pixelSize = 15; // Increased pixel size for better performance
     const colors = ['#87CEEB', '#97DEFA', '#A7EEFF'];
     
     for (let y = 0; y < canvas.height; y += pixelSize) {
         for (let x = 0; x < canvas.width; x += pixelSize) {
-            context.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+            context.fillStyle = colors[Math.floor((x + y) / pixelSize) % colors.length];
             context.fillRect(x, y, pixelSize, pixelSize);
         }
     }
@@ -141,13 +138,14 @@ function drawPipes() {
     });
 }
 
+// Modify the drawPixelPipe function
 function drawPixelPipe(x, height, isTop) {
-    const pixelSize = 5;
+    const pixelSize = 8; // Increased pixel size for better performance
     const pipeColors = ['#75C147', '#65B137', '#55A127'];
     
     for (let y = 0; y < (isTop ? height : canvas.height - height - pipeGap); y += pixelSize) {
         for (let pipeX = x; pipeX < x + pipeWidth; pipeX += pixelSize) {
-            context.fillStyle = pipeColors[Math.floor(Math.random() * pipeColors.length)];
+            context.fillStyle = pipeColors[Math.floor((pipeX + y) / pixelSize) % pipeColors.length];
             context.fillRect(pipeX, isTop ? y : height + pipeGap + y, pixelSize, pixelSize);
         }
     }
@@ -159,11 +157,12 @@ function drawPixelPipe(x, height, isTop) {
     }
 }
 
+// Modify the update function
 function update() {
     bird.velocity += bird.gravity;
     bird.y += bird.velocity;
 
-    if (bird.y > canvas.height || bird.y < 0) {
+    if (bird.y > canvas.height - bird.height || bird.y < 0) {
         resetGame();
     }
 
@@ -171,26 +170,23 @@ function update() {
         pipe.x -= pipeSpeed;
     });
 
-    if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - canvas.width * 0.5) { // Increased distance between pipes
-        const pipeHeight = Math.floor(Math.random() * (canvas.height - pipeGap - canvas.height * 0.3)) + canvas.height * 0.15; // Adjusted pipe height range
+    if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - canvas.width * 0.6) {
+        const pipeHeight = Math.floor(Math.random() * (canvas.height - pipeGap - canvas.height * 0.4)) + canvas.height * 0.2;
         pipes.push({ x: canvas.width, height: pipeHeight });
         score += 0.05;
         updateScoreDisplay();
     }
 
-    pipes.forEach((pipe, index) => {
-        if (pipe.x + pipeWidth < 0) {
-            pipes.splice(index, 1);
-        }
-    });
+    pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
 
-    pipes.forEach(pipe => {
+    for (let pipe of pipes) {
         if (bird.x < pipe.x + pipeWidth &&
             bird.x + bird.width > pipe.x &&
             (bird.y < pipe.height || bird.y + bird.height > pipe.height + pipeGap)) {
             resetGame();
+            break;
         }
-    });
+    }
 }
 
 // Add this new function to create and show the end screen
@@ -248,19 +244,22 @@ function resetGame() {
     score = 0;
     updateScoreDisplay();
     
-    // Show the end screen
-    showEndScreen(finalScore);
-
-    // Show Telegram popup if available
+    // Use Telegram popup if available, otherwise show custom end screen
     if (tg.showPopup) {
         tg.showPopup({
             title: 'Game Over',
             message: `Your final score: $${finalScore.toFixed(2)} Billion`,
             buttons: [{
                 type: 'ok',
-                text: 'Close'
+                text: 'Play Again'
             }]
+        }, function() {
+            // This function will be called when the user clicks "Play Again"
+            initializeGame();
+            gameLoop();
         });
+    } else {
+        showEndScreen(finalScore);
     }
 }
 
@@ -290,10 +289,18 @@ function handleInput(event) {
     }
 }
 
-function gameLoop() {
-    console.log('Game loop running'); // Add this line
-    update();
-    draw();
+// Modify the gameLoop function
+let lastTime = 0;
+function gameLoop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    const deltaTime = timestamp - lastTime;
+    
+    if (deltaTime > 16.67) { // Cap at ~60 FPS
+        lastTime = timestamp;
+        update();
+        draw();
+    }
+    
     requestAnimationFrame(gameLoop);
 }
 
@@ -316,9 +323,9 @@ document.addEventListener('DOMContentLoaded', function() {
     tg.ready();
     
     initializeGame();
-    gameLoop();
+    requestAnimationFrame(gameLoop);
 
-    // Add event listeners for both touch and mouse events
-    document.addEventListener('touchstart', handleInput);
-    document.addEventListener('click', handleInput);
+    // Use passive event listeners for better scroll performance
+    document.addEventListener('touchstart', handleInput, { passive: false });
+    document.addEventListener('click', handleInput, { passive: true });
 });
