@@ -6,6 +6,7 @@ const scoreDisplay = document.getElementById('score');
 function resizeCanvas() {
     canvas.width = gameContainer.clientWidth;
     canvas.height = gameContainer.clientHeight;
+    console.log('Canvas size:', canvas.width, 'x', canvas.height); // Add this line
     // Adjust game elements based on new canvas size
     bird.width = canvas.width * 0.1;
     bird.height = bird.width * 0.75;
@@ -29,6 +30,7 @@ const bird = {
 };
 
 bird.image.src = 'images/google_bird.png';
+bird.image.onerror = () => console.error('Failed to load bird image');
 
 const pipeImages = [
     'images/bing_pipe.png',
@@ -46,7 +48,10 @@ let score = 0;
 function drawBackground() {
     const background = new Image();
     background.src = 'images/sky_background.png'; // Add a background image
-    context.drawImage(background, 0, 0, canvas.width, canvas.height);
+    background.onload = () => {
+        context.drawImage(background, 0, 0, canvas.width, canvas.height);
+    };
+    background.onerror = () => console.error('Failed to load background image');
 }
 
 function drawBird() {
@@ -61,8 +66,11 @@ function drawPipes() {
     pipes.forEach(pipe => {
         const pipeImage = new Image();
         pipeImage.src = pipe.image;
-        context.drawImage(pipeImage, pipe.x, 0, pipeWidth, pipe.height);
-        context.drawImage(pipeImage, pipe.x, pipe.height + pipeGap, pipeWidth, canvas.height - pipe.height - pipeGap);
+        pipeImage.onload = () => {
+            context.drawImage(pipeImage, pipe.x, 0, pipeWidth, pipe.height);
+            context.drawImage(pipeImage, pipe.x, pipe.height + pipeGap, pipeWidth, canvas.height - pipe.height - pipeGap);
+        };
+        pipeImage.onerror = () => console.error('Failed to load pipe image');
     });
 }
 
@@ -121,6 +129,7 @@ function handleInput() {
 }
 
 function gameLoop() {
+    console.log('Game loop running'); // Add this line
     update();
     draw();
     requestAnimationFrame(gameLoop);
@@ -142,6 +151,7 @@ canvas.addEventListener('touchstart', function (event) {
 });
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded'); // Add this line
     resizeCanvas();
     resetGame();
     gameLoop();
