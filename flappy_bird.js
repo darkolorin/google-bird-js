@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.0.1'; // Increment this when deploying a new version
+const GAME_VERSION = '1.0.4'; // Increment this when deploying a new version
 
 const gameContainer = document.getElementById('game-container');
 const canvas = document.getElementById('gameCanvas');
@@ -191,6 +191,11 @@ function update() {
 
 // Add this new function to create and show the end screen
 function showEndScreen(finalScore) {
+    const existingEndScreen = document.getElementById('end-screen');
+    if (existingEndScreen) {
+        gameContainer.removeChild(existingEndScreen);
+    }
+
     const endScreen = document.createElement('div');
     endScreen.id = 'end-screen';
     endScreen.style.position = 'absolute';
@@ -223,7 +228,7 @@ function showEndScreen(finalScore) {
     playAgainButton.onclick = function() {
         gameContainer.removeChild(endScreen);
         initializeGame();
-        gameLoop();
+        requestAnimationFrame(gameLoop);
     };
 
     endScreen.appendChild(gameOverText);
@@ -235,7 +240,6 @@ function showEndScreen(finalScore) {
 
 // Modify the resetGame function
 function resetGame() {
-    // Store the final score before resetting
     const finalScore = score;
     
     bird.y = canvas.height / 2;
@@ -244,7 +248,6 @@ function resetGame() {
     score = 0;
     updateScoreDisplay();
     
-    // Use Telegram popup if available, otherwise show custom end screen
     if (tg.showPopup) {
         tg.showPopup({
             title: 'Game Over',
@@ -254,9 +257,8 @@ function resetGame() {
                 text: 'Play Again'
             }]
         }, function() {
-            // This function will be called when the user clicks "Play Again"
             initializeGame();
-            gameLoop();
+            requestAnimationFrame(gameLoop);
         });
     } else {
         showEndScreen(finalScore);
