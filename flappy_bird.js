@@ -41,8 +41,8 @@ function initializeGame() {
     // Set the background color of the Telegram Mini App
     tg.setBackgroundColor('#87CEEB');
 
-    // Expand the Mini App to its maximum size
-    tg.expand();
+    // Add touch event listener for the whole document
+    document.addEventListener('touchstart', handleInput);
 }
 
 function resizeCanvas() {
@@ -166,8 +166,19 @@ function resetGame() {
     score = 0;
     updateScoreDisplay();
     
-    // Show an alert when the game is over
-    tg.showAlert(`Game Over! Your score: $${score.toFixed(2)} Billion`);
+    // Show an alert when the game is over with a refresh button
+    tg.showPopup({
+        title: 'Game Over',
+        message: `Your score: $${score.toFixed(2)} Billion`,
+        buttons: [{
+            type: 'ok',
+            text: 'Play Again'
+        }]
+    }, function() {
+        // This function will be called when the user clicks "Play Again"
+        initializeGame();
+        gameLoop();
+    });
 }
 
 function draw() {
@@ -177,25 +188,19 @@ function draw() {
     drawPipes();
 }
 
-function handleInput() {
+function handleInput(event) {
+    event.preventDefault(); // Prevent default touch behavior
     bird.velocity = bird.lift;
+    
     // Add haptic feedback
-    tg.HapticFeedback.impactOccurred('light');
-    // Add a small cooldown to prevent rapid flapping
-    canvas.removeEventListener('touchstart', handleInput);
-    window.removeEventListener('keydown', handleKeyDown);
-    setTimeout(() => {
-        canvas.addEventListener('touchstart', handleInput);
-        window.addEventListener('keydown', handleKeyDown);
-    }, 250); // 250ms cooldown
-}
-
-function handleKeyDown(event) {
-    if (event.code === 'Space') {
-        event.preventDefault();
-        handleInput();
+    if (tg.HapticFeedback) {
+        tg.HapticFeedback.impactOccurred('light');
     }
 }
+
+// Remove the keydown event listener and related function
+// window.removeEventListener('keydown', handleKeyDown);
+// function handleKeyDown(event) { ... }
 
 function gameLoop() {
     console.log('Game loop running'); // Add this line
@@ -208,12 +213,7 @@ function updateScoreDisplay() {
     scoreDisplay.innerText = `Revenue: $${score.toFixed(2)} Billion`;
 }
 
-window.addEventListener('keydown', handleKeyDown);
-canvas.addEventListener('touchstart', function (event) {
-    event.preventDefault();
-    handleInput();
-});
-
+// Modify the DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded');
     console.log(`Game version: ${GAME_VERSION}`);
@@ -225,9 +225,12 @@ document.addEventListener('DOMContentLoaded', function() {
     sessionStorage.clear();
     
     // Initialize Telegram Mini App
-    tg.ready();
+    if (window.Telegram && window.Telegram.WebApp) {
+        tg.ready();
+    } else {
+        console.warn('Telegram WebApp is not available. Running in standalone mode.');
+    }
     
     initializeGame();
-    resetGame();
     gameLoop();
 });
