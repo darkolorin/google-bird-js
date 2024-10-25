@@ -8,18 +8,28 @@ const scoreDisplay = document.getElementById('score');
 let bird, pipeWidth, pipeGap;
 let cloudPositions = [];
 
-// Modify the tg initialization
-const tg = window.Telegram ? window.Telegram.WebApp : {
-    // Mock Telegram WebApp methods for desktop testing
+// Replace the tg initialization with this
+const tg = window.Telegram?.WebApp || {
     ready: () => console.log('Mock Telegram WebApp ready'),
     showPopup: (params, callback) => {
         alert(params.message);
         if (callback) callback();
     },
     HapticFeedback: {
-        impactOccurred: () => console.log('Mock haptic feedback')
+        impactOccurred: (style) => console.log('Mock haptic feedback:', style)
     },
-    setBackgroundColor: (color) => console.log('Mock set background color:', color)
+    setBackgroundColor: (color) => console.log('Mock set background color:', color),
+    expand: () => console.log('Mock expand'),
+    enableClosingConfirmation: () => console.log('Mock closing confirmation'),
+    isExpanded: true
+};
+
+// Add after tg initialization
+const mainButton = tg.MainButton || {
+    show: () => console.log('Mock show main button'),
+    hide: () => console.log('Mock hide main button'),
+    setText: (text) => console.log('Mock set text:', text),
+    onClick: (fn) => console.log('Mock onClick')
 };
 
 // Modify the initializeGame function
@@ -248,7 +258,8 @@ function resetGame() {
     score = 0;
     updateScoreDisplay();
     
-    if (tg.showPopup) {
+    if (window.Telegram?.WebApp) {
+        // Use native Telegram popup for mobile
         tg.showPopup({
             title: 'Game Over',
             message: `Your final score: $${finalScore.toFixed(2)} Billion`,
@@ -256,11 +267,12 @@ function resetGame() {
                 type: 'ok',
                 text: 'Play Again'
             }]
-        }, function() {
+        }, () => {
             initializeGame();
             requestAnimationFrame(gameLoop);
         });
     } else {
+        // Use custom end screen for desktop/web
         showEndScreen(finalScore);
     }
 }
@@ -315,19 +327,21 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded');
     console.log(`Game version: ${GAME_VERSION}`);
     
-    // Clear localStorage cache
+    // Clear caches
     localStorage.clear();
-    
-    // Clear sessionStorage cache
     sessionStorage.clear();
     
-    // Initialize Telegram Mini App or mock for desktop
-    tg.ready();
+    // Initialize Telegram Mini App
+    if (window.Telegram?.WebApp) {
+        tg.ready();
+        tg.expand(); // Expand the Mini App to full height
+        tg.enableClosingConfirmation(); // Prevent accidental closing
+    }
     
     initializeGame();
     requestAnimationFrame(gameLoop);
 
-    // Use passive event listeners for better scroll performance
+    // Event listeners
     document.addEventListener('touchstart', handleInput, { passive: false });
     document.addEventListener('click', handleInput, { passive: true });
 });
