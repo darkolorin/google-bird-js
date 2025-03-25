@@ -23,13 +23,8 @@ const config = {
         create: create,
         update: update
     },
-    plugins: {
-        global: [{
-            key: 'rexSVGPlugin',
-            plugin: rexsvgplugin,
-            start: true
-        }]
-    }
+    // No special plugins needed for PNG images
+    pixelArt: true
 };
 
 // Initialize Phaser game
@@ -53,13 +48,13 @@ let backgroundSpeed = 0.5;
 
 // Asset loading
 function preload() {
-    // Load images using SVG plugin
-    this.load.rexSVG('background', 'assets/images/background.svg');
-    this.load.rexSVG('bird', 'assets/images/bird.svg');
-    this.load.rexSVG('pipe', 'assets/images/pipe.svg');
-    this.load.rexSVG('ground', 'assets/images/ground.svg');
-    this.load.rexSVG('cloud', 'assets/images/cloud.svg');
-    this.load.rexSVG('restart', 'assets/images/restart.svg');
+    // Load images using PNG fallbacks instead of SVG
+    this.load.image('background', 'assets/images/background.png');
+    this.load.image('bird', 'assets/images/bird.png');
+    this.load.image('pipe', 'assets/images/pipe.png');
+    this.load.image('ground', 'assets/images/ground.png');
+    this.load.image('cloud', 'assets/images/cloud.png');
+    this.load.image('restart', 'assets/images/restart.png');
     
     // Load sounds
     this.load.audio('flap', 'assets/sounds/flap.wav');
