@@ -1,0 +1,12 @@
+<svg width="80" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Pipe body -->
+  <rect x="0" y="0" width="80" height="400" fill="#4caf50" />
+  
+  <!-- Pipe highlights -->
+  <rect x="5" y="0" width="70" height="400" fill="#43a047" />
+  
+  <!-- Pipe rim -->
+  <rect x="0" y="0" width="90" height="20" fill="#388e3c" />
+  <rect x="0" y="0" width="80" height="15" fill="#4caf50" />
+  <rect x="5" y="0" width="70" height="15" fill="#43a047" />
+</svg>

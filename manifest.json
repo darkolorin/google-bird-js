@@ -1,0 +1,10 @@
+{
+    "name": "Flappy Bird",
+    "short_name": "Flappy Bird",
+    "version": "1.0.0",
+    "description": "A Flappy Bird-style game for Telegram Mini Apps",
+    "start_url": "/index.html",
+    "background_color": "#333333",
+    "display": "standalone",
+    "orientation": "portrait"
+}

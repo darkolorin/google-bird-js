@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Mini App Configuration</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #2481cc;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #333;
+            margin-top: 30px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .step {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Telegram Mini App Setup Guide</h1>
+    
+    <div class="step">
+        <h2>Step 1: Create a Bot with BotFather</h2>
+        <ol>
+            <li>Open <a href="https://t.me/BotFather" target="_blank">@BotFather</a> in Telegram</li>
+            <li>Send the command <code>/newbot</code></li>
+            <li>Follow the instructions to name your bot</li>
+            <li>Save the API token provided (you'll need it later)</li>
+        </ol>
+    </div>
+    
+    <div class="step">
+        <h2>Step 2: Create a Mini App</h2>
+        <ol>
+            <li>In BotFather, send the command <code>/newapp</code></li>
+            <li>Select the bot you just created</li>
+            <li>Follow the instructions to set up your Mini App</li>
+            <li>For the website URL, use the GitHub Pages URL where you've deployed this game</li>
+            <li>Example: <code>https://yourusername.github.io/telegram-flappy-bird/</code></li>
+        </ol>
+    </div>
+    
+    <div class="step">
+        <h2>Step 3: Configure Mini App Settings</h2>
+        <p>Use these settings when prompted:</p>
+        <ul>
+            <li><strong>Title:</strong> Flappy Bird</li>
+            <li><strong>Short Name:</strong> FlappyBird</li>
+            <li><strong>Description:</strong> Play the classic Flappy Bird game right in Telegram!</li>
+            <li><strong>Photo:</strong> Upload an icon (you can create one based on the bird asset)</li>
+        </ul>
+    </div>
+    
+    <div class="step">
+        <h2>Step 4: Deploy to GitHub Pages</h2>
+        <ol>
+            <li>Create a GitHub repository for your game</li>
+            <li>Push the code to the repository</li>
+            <li>Enable GitHub Pages in the repository settings</li>
+            <li>Choose the branch to deploy (usually main or gh-pages)</li>
+            <li>Wait for the deployment to complete</li>
+            <li>Use the published URL for your Mini App in BotFather</li>
+        </ol>
+    </div>
+    
+    <div class="step">
+        <h2>Step 5: Test Your Mini App</h2>
+        <ol>
+            <li>Open your bot in Telegram</li>
+            <li>Send the command <code>/start</code></li>
+            <li>Look for the Mini App button in the bot menu</li>
+            <li>Click to launch your Flappy Bird game!</li>
+        </ol>
+    </div>
+    
+    <h2>Technical Information</h2>
+    <p>This game uses the following Telegram Mini App features:</p>
+    <pre>
+// Telegram Web App initialization
+const tgApp = window.Telegram?.WebApp;
+if (tgApp) {
+    tgApp.expand();  // Expands the Web App to full screen
+    tgApp.ready();   // Informs Telegram that the Web App is ready to be displayed
+}
+
+// Sending game score back to Telegram
+if (tgApp) {
+    const data = { score: score };
+    tgApp.sendData(JSON.stringify(data));
+}
+    </pre>
+    
+    <p>For more information about Telegram Mini Apps development, visit the <a href="https://core.telegram.org/bots/webapps" target="_blank">official documentation</a>.</p>
+</body>
+</html>
