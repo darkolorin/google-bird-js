@@ -61,205 +61,233 @@ let debugText;
 
 // Asset loading
 function preload() {
-    // Display a loading message
-    this.add.text(config.width / 2, config.height / 2, 'Loading...', 
-        { fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
-
-    // Create placeholder graphics since PNG files are missing
-    this.load.on('complete', function() {
-        try {
-            console.log("Creating game assets...");
-            
-            // Create background
-            const bgGraphics = this.make.graphics();
-            bgGraphics.fillGradientStyle(0x64b5f6, 0x64b5f6, 0xbbdefb, 0xbbdefb, 1);
-            bgGraphics.fillRect(0, 0, config.width, config.height);
-            bgGraphics.generateTexture('background', config.width, config.height);
-            
-            // Create bird
-            const birdGraphics = this.make.graphics();
-            birdGraphics.fillStyle(0xffeb3b, 1);
-            birdGraphics.fillCircle(30, 25, 20);
-            birdGraphics.fillStyle(0xff9800, 1);
-            birdGraphics.fillTriangle(45, 20, 60, 20, 45, 30);
-            birdGraphics.generateTexture('bird', 60, 45);
-            
-            // Create pipe
-            const pipeGraphics = this.make.graphics();
-            pipeGraphics.fillStyle(0x4caf50, 1);
-            pipeGraphics.fillRect(0, 0, 80, 400);
-            pipeGraphics.generateTexture('pipe', 80, 400);
-            
-            // Create ground
-            const groundGraphics = this.make.graphics();
-            groundGraphics.fillStyle(0x8d6e63, 1);
-            groundGraphics.fillRect(0, 0, config.width, 40);
-            groundGraphics.generateTexture('ground', config.width, 40);
-            
-            // Create cloud
-            const cloudGraphics = this.make.graphics();
-            cloudGraphics.fillStyle(0xffffff, 0.9);
-            cloudGraphics.fillCircle(50, 30, 30);
-            cloudGraphics.generateTexture('cloud', 120, 60);
-            
-            // Create restart button
-            const restartGraphics = this.make.graphics();
-            restartGraphics.fillStyle(0x4caf50, 1);
-            restartGraphics.fillCircle(50, 50, 40);
-            restartGraphics.fillStyle(0xffffff, 1);
-            restartGraphics.fillTriangle(40, 35, 65, 50, 40, 65);
-            restartGraphics.generateTexture('restart', 100, 100);
-            
-            assetsReady = true;
-            console.log("Game assets created successfully!");
-        } catch (error) {
-            console.error("Error creating game assets:", error);
-        }
-    }, this);
+    // Create simple geometric shapes directly
+    this.load.on('complete', () => {
+        console.log("Preload complete, creating assets...");
+        assetsReady = true;
+    });
     
-    // Load sounds
-    this.load.audio('flap', 'assets/sounds/flap.wav');
-    this.load.audio('score', 'assets/sounds/score.wav');
-    this.load.audio('hit', 'assets/sounds/hit.wav');
+    // Draw simple shapes for each game element directly in create function
+    // No need to load external assets which can fail
+    
+    // Load sounds with error handling
+    this.load.audio('flap', 'assets/sounds/flap.wav').on('loaderror', () => {
+        console.warn("Failed to load flap sound, continuing without it");
+    });
+    
+    this.load.audio('score', 'assets/sounds/score.wav').on('loaderror', () => {
+        console.warn("Failed to load score sound, continuing without it");
+    });
+    
+    this.load.audio('hit', 'assets/sounds/hit.wav').on('loaderror', () => {
+        console.warn("Failed to load hit sound, continuing without it");
+    });
+    
+    // Display loading text
+    this.loadingText = this.add.text(
+        config.width / 2, 
+        config.height / 2, 
+        'Loading...', 
+        { fontSize: '24px', fill: '#fff' }
+    ).setOrigin(0.5);
 }
 
 // Game initialization
 function create() {
+    console.log("Creating game scene...");
+    
+    // Remove loading text if it exists
+    if (this.loadingText) {
+        this.loadingText.destroy();
+    }
+    
+    // Create background - simple blue rectangle
+    this.bg = this.add.rectangle(0, 0, config.width, config.height, 0x64b5f6).setOrigin(0, 0);
+    
+    // Add clouds - simple white circles
+    clouds = this.physics.add.group();
+    for (let i = 0; i < 4; i++) {
+        const cloud = clouds.create(
+            Phaser.Math.Between(0, config.width),
+            Phaser.Math.Between(50, 200),
+            null
+        );
+        cloud.body = this.physics.add.existing(cloud).body;
+        cloud.body.allowGravity = false;
+        cloud.speedX = Phaser.Math.FloatBetween(0.2, 0.8);
+        cloud.width = 80;
+        cloud.setVisible(false); // Hide placeholder sprite
+        
+        // Draw circle directly 
+        const cloudGraphic = this.add.circle(cloud.x, cloud.y, 30, 0xffffff, 0.8);
+        cloud.cloudGraphic = cloudGraphic;
+    }
+    
+    // Add ground - brown rectangle
+    ground = this.physics.add.staticGroup();
+    const groundObj = ground.create(config.width / 2, config.height - 20, null);
+    groundObj.setVisible(false); // Hide placeholder sprite
+    groundObj.refreshBody();
+    
+    // Draw rectangle directly
+    this.add.rectangle(config.width / 2, config.height - 20, config.width, 40, 0x8d6e63);
+    
+    // Add bird - yellow circle with orange triangle for beak
+    bird = this.physics.add.sprite(80, config.height / 2, null);
+    bird.setVisible(false); // Hide placeholder sprite
+    
+    // Draw bird graphics directly
+    const birdContainer = this.add.container(80, config.height / 2);
+    const birdBody = this.add.circle(0, 0, 15, 0xffeb3b);
+    const birdBeak = this.add.triangle(15, 0, 0, -5, 15, 0, 0, 5, 0xff9800);
+    birdContainer.add([birdBody, birdBeak]);
+    bird.container = birdContainer;
+    
+    bird.setCollideWorldBounds(true);
+    bird.body.allowGravity = false;
+    bird.depth = 10;
+    
+    // Add pipes group
+    pipes = this.physics.add.group();
+    
+    // Set up collisions
+    this.physics.add.collider(bird, ground, hitObstacle, null, this);
+    this.physics.add.collider(bird, pipes, hitObstacle, null, this);
+    
+    // Add sounds with fallbacks
     try {
-        console.log("Creating game scene...");
-        
-        // Add background
-        this.bg = this.add.tileSprite(0, 0, config.width, config.height, 'background').setOrigin(0, 0);
-        
-        // Add clouds
-        clouds = this.physics.add.group();
-        for (let i = 0; i < 4; i++) {
-            createCloud(this, Phaser.Math.Between(0, config.width), Phaser.Math.Between(50, 200));
-        }
-        
-        // Add ground
-        ground = this.physics.add.staticGroup();
-        ground.create(config.width / 2, config.height - 20, 'ground').refreshBody();
-        
-        // Add bird
-        bird = this.physics.add.sprite(80, config.height / 2, 'bird').setScale(0.6);
-        bird.setCollideWorldBounds(true);
-        bird.body.allowGravity = false;
-        bird.depth = 10;
-        
-        // Add pipes group
-        pipes = this.physics.add.group();
-        
-        // Set up collisions
-        this.physics.add.collider(bird, ground, hitObstacle, null, this);
-        this.physics.add.collider(bird, pipes, hitObstacle, null, this);
-        
-        // Add sounds
         this.flapSound = this.sound.add('flap');
         this.scoreSound = this.sound.add('score');
         this.hitSound = this.sound.add('hit');
-        
-        // Add score text
-        scoreText = this.add.text(config.width / 2, 50, '0', { fontSize: '32px', fill: '#fff' });
-        scoreText.setOrigin(0.5);
-        scoreText.depth = 20;
-        
-        // Add tap to start text
-        tapToStartText = this.add.text(config.width / 2, config.height / 2, 'Tap to Start', { fontSize: '24px', fill: '#fff' });
-        tapToStartText.setOrigin(0.5);
-        tapToStartText.depth = 20;
-        
-        // Add game over text (hidden initially)
-        gameOverText = this.add.text(config.width / 2, config.height / 2 - 50, 'Game Over', { fontSize: '40px', fill: '#fff' });
-        gameOverText.setOrigin(0.5);
-        gameOverText.visible = false;
-        gameOverText.depth = 20;
-        
-        // Add restart button (hidden initially)
-        restartButton = this.add.image(config.width / 2, config.height / 2 + 50, 'restart').setScale(0.5);
-        restartButton.setInteractive();
-        restartButton.on('pointerdown', restartGame, this);
-        restartButton.visible = false;
-        restartButton.depth = 20;
-        
-        // Add debug text (hidden in production)
-        debugText = this.add.text(10, 10, '', { fontSize: '16px', fill: '#fff' });
-        debugText.depth = 30;
-        debugText.setText(`Assets loaded: ${assetsReady}`);
-        
-        // Set up input
-        this.input.on('pointerdown', flapBird, this);
-        
-        console.log("Game scene created successfully!");
-    } catch (error) {
-        console.error("Error creating game scene:", error);
-        // Show error to user
-        this.add.text(config.width / 2, config.height / 2, 
-            'Error loading game.\nPlease refresh the page.', 
-            { fontSize: '20px', fill: '#fff', align: 'center' }).setOrigin(0.5);
+    } catch (e) {
+        console.warn("Could not load sounds, continuing without them");
+        // Create dummy sound objects that have a play method that does nothing
+        this.flapSound = { play: () => {} };
+        this.scoreSound = { play: () => {} };
+        this.hitSound = { play: () => {} };
     }
+    
+    // Add score text
+    scoreText = this.add.text(config.width / 2, 50, '0', 
+        { fontSize: '32px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
+    scoreText.setOrigin(0.5);
+    scoreText.depth = 20;
+    
+    // Add tap to start text
+    tapToStartText = this.add.text(config.width / 2, config.height / 2, 'Tap to Start', 
+        { fontSize: '24px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
+    tapToStartText.setOrigin(0.5);
+    tapToStartText.depth = 20;
+    
+    // Add game over text (hidden initially)
+    gameOverText = this.add.text(config.width / 2, config.height / 2 - 50, 'Game Over', 
+        { fontSize: '40px', fill: '#fff', stroke: '#000', strokeThickness: 4 });
+    gameOverText.setOrigin(0.5);
+    gameOverText.visible = false;
+    gameOverText.depth = 20;
+    
+    // Add restart button (green circle with white triangle)
+    // Create directly rather than using images
+    restartButton = this.add.container(config.width / 2, config.height / 2 + 50);
+    const buttonCircle = this.add.circle(0, 0, 25, 0x4caf50);
+    const buttonSymbol = this.add.triangle(0, 0, -10, -15, 15, 0, -10, 15, 0xffffff);
+    restartButton.add([buttonCircle, buttonSymbol]);
+    
+    // Make it interactive
+    buttonCircle.setInteractive(
+        new Phaser.Geom.Circle(0, 0, 25),
+        Phaser.Geom.Circle.Contains
+    );
+    buttonCircle.on('pointerdown', restartGame, this);
+    
+    restartButton.visible = false;
+    restartButton.depth = 20;
+    
+    // Set up input for the entire game
+    this.input.on('pointerdown', flapBird, this);
+    
+    console.log("Game scene created successfully!");
 }
 
 // Game loop
 function update(time) {
-    try {
-        // Update debug text
-        if (debugText) {
-            debugText.setText(`Assets: ${assetsReady ? 'OK' : 'Loading...'}`);
-        }
-        
-        if (gameOver) return;
-        
-        // Move background and ground
-        if (this.bg) {
-            this.bg.tilePositionX += backgroundSpeed;
-        }
-        
-        // Update clouds
-        if (clouds && clouds.getChildren) {
-            clouds.getChildren().forEach(cloud => {
-                cloud.x -= cloud.speedX;
-                if (cloud.x < -cloud.width) {
-                    cloud.x = config.width + cloud.width;
-                    cloud.y = Phaser.Math.Between(50, 200);
-                }
-            });
-        }
-        
-        if (!gameStarted) return;
-        
-        // Generate pipes
-        if (time > nextPipes) {
-            createPipes(this);
-            nextPipes = time + 1500;
-        }
-        
-        // Check for scoring
-        if (pipes && pipes.getChildren) {
-            pipes.getChildren().forEach(pipe => {
-                // Score when passing the middle of pipes
-                if (pipe.x + pipe.width < bird.x && !pipe.scored && pipe.texture.key === 'pipe' && pipe.y < config.height / 2) {
-                    pipe.scored = true;
-                    increaseScore(this);
-                }
+    // Handle game over state
+    if (gameOver) return;
+    
+    // Move fixed background color - no need to move 
+    
+    // Update clouds
+    if (clouds && clouds.getChildren) {
+        clouds.getChildren().forEach(cloud => {
+            // Move the cloud sprite (physics body)
+            cloud.x -= cloud.speedX;
+            
+            // Move the cloud graphic to match
+            if (cloud.cloudGraphic) {
+                cloud.cloudGraphic.x = cloud.x;
+            }
+            
+            // Reset cloud position when it goes off screen
+            if (cloud.x < -cloud.width) {
+                cloud.x = config.width + cloud.width;
+                cloud.y = Phaser.Math.Between(50, 200);
                 
-                // Remove pipes when off screen
-                if (pipe.x < -pipe.width) {
-                    pipe.destroy();
+                // Update graphic position too
+                if (cloud.cloudGraphic) {
+                    cloud.cloudGraphic.x = cloud.x;
+                    cloud.cloudGraphic.y = cloud.y;
                 }
-            });
-        }
-        
-        // Rotate bird based on velocity
-        if (bird && bird.body) {
+            }
+        });
+    }
+    
+    // Don't proceed if game hasn't started
+    if (!gameStarted) return;
+    
+    // Generate pipes
+    if (time > nextPipes) {
+        createPipes(this);
+        nextPipes = time + 1500;
+    }
+    
+    // Update pipes and check for scoring
+    if (pipes && pipes.getChildren) {
+        pipes.getChildren().forEach(pipe => {
+            // Update pipe graphic position to match the physics body
+            if (pipe.pipeGraphic) {
+                pipe.pipeGraphic.x = pipe.x;
+            }
+            
+            // Score when passing the middle of pipes
+            if (pipe.x + 30 < bird.x && !pipe.scored && pipe.y < config.height / 2) {
+                pipe.scored = true;
+                increaseScore(this);
+            }
+            
+            // Remove pipes and their graphics when off screen
+            if (pipe.x < -60) {
+                if (pipe.pipeGraphic) {
+                    pipe.pipeGraphic.destroy();
+                }
+                pipe.destroy();
+            }
+        });
+    }
+    
+    // Update bird rotation and container position
+    if (bird && bird.body) {
+        // Move the bird container to match the physics body
+        if (bird.container) {
+            bird.container.x = bird.x;
+            bird.container.y = bird.y;
+            
+            // Rotate the bird container based on velocity
             if (bird.body.velocity.y > 0) {
-                bird.angle = Math.min(bird.angle + 2, 30);
+                bird.container.rotation = Math.min(bird.container.rotation + 0.05, 0.5);
             } else {
-                bird.angle = Math.max(bird.angle - 2, -30);
+                bird.container.rotation = Math.max(bird.container.rotation - 0.05, -0.5);
             }
         }
-    } catch (error) {
-        console.error("Error in update loop:", error);
     }
 }
 
@@ -289,31 +317,51 @@ function flapBird() {
 function createPipes(scene) {
     // Calculate random position for the gap
     const pipeY = Phaser.Math.Between(100, config.height - gap - 100 - 64);
+    const pipeWidth = 60;
+    const pipeHeight = 320;
     
     // Create top pipe
-    const topPipe = pipes.create(config.width + 10, pipeY - 320, 'pipe');
+    const topPipe = pipes.create(config.width + 10, pipeY - pipeHeight/2, null);
+    topPipe.setVisible(false); // Hide placeholder sprite
     topPipe.body.allowGravity = false;
     topPipe.scored = false;
     
+    // Draw pipe directly
+    const topPipeGraphic = scene.add.rectangle(config.width + 10, pipeY - pipeHeight/2, pipeWidth, pipeHeight, 0x4caf50);
+    topPipe.pipeGraphic = topPipeGraphic;
+    topPipe.pipeGraphic.depth = 5;
+    
     // Create bottom pipe
-    const bottomPipe = pipes.create(config.width + 10, pipeY + gap, 'pipe');
+    const bottomPipe = pipes.create(config.width + 10, pipeY + gap + pipeHeight/2, null);
+    bottomPipe.setVisible(false); // Hide placeholder sprite
     bottomPipe.body.allowGravity = false;
     bottomPipe.scored = false;
+    
+    // Draw pipe directly
+    const bottomPipeGraphic = scene.add.rectangle(config.width + 10, pipeY + gap + pipeHeight/2, pipeWidth, pipeHeight, 0x4caf50);
+    bottomPipe.pipeGraphic = bottomPipeGraphic;
+    bottomPipe.pipeGraphic.depth = 5;
+    
+    // Set hitbox sizes
+    topPipe.body.setSize(pipeWidth, pipeHeight);
+    bottomPipe.body.setSize(pipeWidth, pipeHeight);
     
     // Move pipes to the left
     topPipe.body.velocity.x = -200;
     bottomPipe.body.velocity.x = -200;
-    
-    // Flip top pipe
-    topPipe.flipY = true;
 }
 
-// Create cloud
+// Create cloud - no longer needed as we create clouds directly in the create function
 function createCloud(scene, x, y) {
-    const cloud = clouds.create(x, y, 'cloud').setScale(Phaser.Math.FloatBetween(0.5, 1));
+    const cloud = clouds.create(x, y, null);
+    cloud.setVisible(false); // Hide placeholder sprite
     cloud.body.allowGravity = false;
     cloud.speedX = Phaser.Math.FloatBetween(0.2, 0.8);
-    cloud.width = cloud.displayWidth;
+    cloud.width = 80;
+    
+    // Draw circle directly
+    const cloudGraphic = scene.add.circle(x, y, 30, 0xffffff, 0.8);
+    cloud.cloudGraphic = cloudGraphic;
 }
 
 // Increase score
@@ -331,18 +379,26 @@ function hitObstacle() {
     this.hitSound.play();
     
     // Stop bird and pipes
-    bird.body.velocity.y = 0;
-    bird.body.allowGravity = false;
-    pipes.getChildren().forEach(pipe => {
-        pipe.body.velocity.x = 0;
-    });
+    if (bird && bird.body) {
+        bird.body.velocity.y = 0;
+        bird.body.allowGravity = false;
+    }
+    
+    // Stop all pipes
+    if (pipes && pipes.getChildren) {
+        pipes.getChildren().forEach(pipe => {
+            if (pipe.body) {
+                pipe.body.velocity.x = 0;
+            }
+        });
+    }
     
     // Display game over
-    gameOverText.visible = true;
-    restartButton.visible = true;
+    if (gameOverText) gameOverText.visible = true;
+    if (restartButton) restartButton.visible = true;
     
     // Share score with Telegram Mini App if running in Telegram
-    if (isTelegram) {
+    if (isTelegram && tgApp) {
         try {
             const data = { score: score };
             tgApp.sendData(JSON.stringify(data));
@@ -355,8 +411,14 @@ function hitObstacle() {
 
 // Restart game
 function restartGame() {
-    this.scene.restart();
-    score = 0;
-    gameOver = false;
-    gameStarted = false;
+    try {
+        this.scene.restart();
+        score = 0;
+        gameOver = false;
+        gameStarted = false;
+    } catch (error) {
+        console.error("Error restarting game:", error);
+        // Reload the page as a fallback
+        window.location.reload();
+    }
 }
