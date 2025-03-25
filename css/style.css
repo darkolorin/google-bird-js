@@ -9,6 +9,12 @@ html, body {
     width: 100%;
     overflow: hidden;
     background-color: #64b5f6;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    touch-action: none;
 }
 
 #game-container {
@@ -17,4 +23,14 @@ html, body {
     align-items: center;
     height: 100%;
     width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
 }
