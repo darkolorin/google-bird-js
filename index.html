@@ -3,38 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
     <title>Flappy Bird - Telegram Mini App</title>
     <link rel="stylesheet" href="css/style.css">
-    <!-- Web app manifest for better fullscreen experience -->
-    <link rel="manifest" href="manifest.json">
-    <!-- Telegram Mini App JS SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Latest Phaser version with improved performance -->
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-    <!-- Prevent pinch zoom on mobile -->
-    <script>
-        document.addEventListener('gesturestart', function(e) {
-            e.preventDefault();
-            return false;
-        });
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
 </head>
 <body>
-    <!-- Game container with improved fullscreen support -->
     <div id="game-container"></div>
-    
-    <!-- Game script -->
     <script src="js/game.js"></script>
-    
-    <!-- Handle resize for better fullscreen -->
-    <script>
-        window.addEventListener('resize', function() {
-            if (typeof game !== 'undefined' && game.scale) {
-                game.scale.resize(window.innerWidth, window.innerHeight);
-            }
-        });
-    </script>
 </body>
 </html>
