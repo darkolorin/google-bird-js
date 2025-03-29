@@ -2,43 +2,362 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Flappy Bird</title>
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simple Flappy Bird</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #71c5cf;
+            touch-action: none;
+        }
+        
+        canvas {
+            display: block;
+            background-color: #71c5cf;
+            touch-action: none;
+        }
+    </style>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
 </head>
 <body>
-    <div id="game-container"></div>
-    <script src="js/game.js"></script>
+    <canvas id="gameCanvas"></canvas>
     
     <script>
-    // Enforce fullscreen and prevent scrolling
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    
-    // Handle orientation change
-    window.addEventListener('orientationchange', function() {
-        setTimeout(function() {
-            window.scrollTo(0, 0);
-        }, 100);
-    });
-    
-    // Prevent scrolling on iOS
-    document.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-    }, { passive: false });
-    
-    // Lock body dimensions
-    function fixViewport() {
-        document.body.style.height = window.innerHeight + 'px';
-        document.getElementById('game-container').style.height = window.innerHeight + 'px';
-    }
-    
-    fixViewport();
-    window.addEventListener('resize', fixViewport);
+        // Initialize Telegram Mini App
+        const tgApp = window.Telegram?.WebApp;
+        if (tgApp) {
+            tgApp.expand();
+            tgApp.ready();
+        }
+
+        // Get canvas and context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        let canvasWidth = 360;
+        let canvasHeight = 640;
+        
+        // Resize to fit screen (maintaining aspect ratio)
+        function resizeCanvas() {
+            const windowRatio = window.innerWidth / window.innerHeight;
+            const gameRatio = canvasWidth / canvasHeight;
+            
+            if (windowRatio < gameRatio) {
+                // Window is narrower than game ratio
+                canvas.style.width = window.innerWidth + 'px';
+                canvas.style.height = (window.innerWidth / gameRatio) + 'px';
+            } else {
+                // Window is wider than game ratio
+                canvas.style.width = (window.innerHeight * gameRatio) + 'px';
+                canvas.style.height = window.innerHeight + 'px';
+            }
+            
+            // Set actual canvas dimensions for pixel-perfect rendering
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+        }
+        
+        // Resize on load and when window size changes
+        window.addEventListener('load', resizeCanvas);
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // Game variables
+        let bird = {
+            x: 80,
+            y: canvasHeight / 2,
+            velocity: 0,
+            radius: 15
+        };
+        
+        let pipes = [];
+        const pipeWidth = 50;
+        const gapHeight = 150;
+        const pipeColor = '#33aa33';
+        
+        let score = 0;
+        let gameOver = false;
+        let gameStarted = false;
+        
+        const gravity = 0.5;
+        const jumpStrength = -8;
+        
+        // Game functions
+        function drawBird() {
+            ctx.save();
+            ctx.translate(bird.x, bird.y);
+            
+            // Rotate based on velocity
+            if (gameStarted) {
+                const angle = Math.min(Math.max(bird.velocity * 0.05, -0.5), 0.5);
+                ctx.rotate(angle);
+            }
+            
+            // Bird body (yellow circle)
+            ctx.fillStyle = '#ffd000';
+            ctx.beginPath();
+            ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bird beak (orange triangle)
+            ctx.fillStyle = '#ff9900';
+            ctx.beginPath();
+            ctx.moveTo(bird.radius, 0);
+            ctx.lineTo(bird.radius + 15, -8);
+            ctx.lineTo(bird.radius + 15, 8);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Bird eye
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(5, -5, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(6, -5, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        function drawPipes() {
+            ctx.fillStyle = pipeColor;
+            
+            pipes.forEach(pipe => {
+                // Top pipe
+                ctx.fillRect(pipe.x, 0, pipeWidth, pipe.gapY);
+                
+                // Bottom pipe
+                ctx.fillRect(
+                    pipe.x, 
+                    pipe.gapY + gapHeight, 
+                    pipeWidth, 
+                    canvasHeight - (pipe.gapY + gapHeight)
+                );
+            });
+        }
+        
+        function drawGround() {
+            ctx.fillStyle = '#33aa33';
+            ctx.fillRect(0, canvasHeight - 80, canvasWidth, 80);
+        }
+        
+        function drawScore() {
+            ctx.fillStyle = 'white';
+            ctx.font = '32px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(score, canvasWidth / 2, 50);
+        }
+        
+        function drawGameStartText() {
+            if (!gameStarted && !gameOver) {
+                ctx.fillStyle = 'white';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Tap to Start', canvasWidth / 2, canvasHeight / 2);
+            }
+        }
+        
+        function drawGameOverText() {
+            if (gameOver) {
+                ctx.fillStyle = 'white';
+                ctx.font = '32px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Over', canvasWidth / 2, canvasHeight / 2 - 50);
+                
+                // Draw score
+                ctx.font = '24px Arial';
+                ctx.fillText('Score: ' + score, canvasWidth / 2, canvasHeight / 2);
+                
+                // Draw restart button
+                ctx.fillStyle = '#33aa33';
+                ctx.beginPath();
+                ctx.arc(canvasWidth / 2, canvasHeight / 2 + 50, 30, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw play triangle
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.moveTo(canvasWidth / 2 + 10, canvasHeight / 2 + 50);
+                ctx.lineTo(canvasWidth / 2 - 5, canvasHeight / 2 + 35);
+                ctx.lineTo(canvasWidth / 2 - 5, canvasHeight / 2 + 65);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+        
+        function updateBird() {
+            if (!gameStarted || gameOver) return;
+            
+            bird.velocity += gravity;
+            bird.y += bird.velocity;
+            
+            // Check ground collision
+            if (bird.y + bird.radius > canvasHeight - 80) {
+                bird.y = canvasHeight - 80 - bird.radius;
+                endGame();
+            }
+            
+            // Check ceiling collision
+            if (bird.y - bird.radius < 0) {
+                bird.y = bird.radius;
+                bird.velocity = 0;
+            }
+        }
+        
+        function updatePipes() {
+            if (!gameStarted || gameOver) return;
+            
+            // Move pipes to the left
+            pipes.forEach(pipe => {
+                pipe.x -= 3;
+                
+                // Check if bird passed the pipe
+                if (!pipe.scored && pipe.x + pipeWidth < bird.x - bird.radius) {
+                    pipe.scored = true;
+                    score++;
+                }
+                
+                // Check collision with pipe
+                if (
+                    bird.x + bird.radius > pipe.x && 
+                    bird.x - bird.radius < pipe.x + pipeWidth
+                ) {
+                    // Check if bird is within the gap
+                    if (
+                        bird.y - bird.radius < pipe.gapY || 
+                        bird.y + bird.radius > pipe.gapY + gapHeight
+                    ) {
+                        endGame();
+                    }
+                }
+            });
+            
+            // Remove pipes that have gone off screen
+            pipes = pipes.filter(pipe => pipe.x > -pipeWidth);
+            
+            // Add new pipe at regular intervals
+            if (frames % 100 === 0) {
+                pipes.push({
+                    x: canvasWidth,
+                    gapY: Math.floor(Math.random() * (canvasHeight - gapHeight - 200)) + 80,
+                    scored: false
+                });
+            }
+        }
+        
+        function endGame() {
+            gameOver = true;
+            
+            // Send score to Telegram if running in Telegram Mini App
+            if (tgApp) {
+                try {
+                    const data = { score: score };
+                    tgApp.sendData(JSON.stringify(data));
+                } catch (error) {
+                    console.error("Error sending score to Telegram:", error);
+                }
+            }
+        }
+        
+        function restartGame() {
+            // Reset game state
+            bird = {
+                x: 80,
+                y: canvasHeight / 2,
+                velocity: 0,
+                radius: 15
+            };
+            
+            pipes = [];
+            score = 0;
+            gameOver = false;
+            gameStarted = false;
+            frames = 0;
+        }
+        
+        // Input handling
+        function handleTap(event) {
+            event.preventDefault();
+            
+            // Prevent handling the same tap multiple times
+            if (event.type === 'touchstart' && event.touches.length > 1) return;
+            
+            // If game over, check if tap is on restart button
+            if (gameOver) {
+                const rect = canvas.getBoundingClientRect();
+                const clickX = (event.clientX || event.touches[0].clientX) - rect.left;
+                const clickY = (event.clientY || event.touches[0].clientY) - rect.top;
+                
+                // Scale coordinates to match canvas dimensions
+                const scaleX = canvasWidth / rect.width;
+                const scaleY = canvasHeight / rect.height;
+                
+                const scaledX = clickX * scaleX;
+                const scaledY = clickY * scaleY;
+                
+                // Check if click is on restart button
+                const distance = Math.sqrt(
+                    Math.pow(scaledX - canvasWidth / 2, 2) + 
+                    Math.pow(scaledY - (canvasHeight / 2 + 50), 2)
+                );
+                
+                if (distance <= 30) {
+                    restartGame();
+                }
+                
+                return;
+            }
+            
+            // Start game if not started
+            if (!gameStarted) {
+                gameStarted = true;
+                return;
+            }
+            
+            // Jump
+            bird.velocity = jumpStrength;
+        }
+        
+        canvas.addEventListener('click', handleTap);
+        canvas.addEventListener('touchstart', handleTap);
+        
+        // Game loop
+        let frames = 0;
+        
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            
+            // Update game state
+            updateBird();
+            updatePipes();
+            
+            // Draw game elements
+            drawPipes();
+            drawGround();
+            drawBird();
+            drawScore();
+            drawGameStartText();
+            drawGameOverText();
+            
+            frames++;
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
     </script>
 </body>
 </html>
