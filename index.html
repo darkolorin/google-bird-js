@@ -74,12 +74,44 @@
         resizeCanvas();
         
         // Game variables
+        const characterTypes = [
+            {
+                type: 'crab',
+                radius: 15,
+                gravity: 0.5,
+                jumpStrength: -8,
+                color: '#FF4136', // Red
+                description: 'Balanced'
+            },
+            {
+                type: 'bird',
+                radius: 14,
+                gravity: 0.45,
+                jumpStrength: -7.8,
+                color: '#FFDD00', // Yellow
+                description: 'Floaty'
+            },
+            {
+                type: 'apple',
+                radius: 16,
+                gravity: 0.55,
+                jumpStrength: -8.2,
+                color: '#2ECC40', // Green
+                description: 'Heavy'
+            }
+        ];
+        
+        // Start with random character
+        let currentCharacterIndex = Math.floor(Math.random() * characterTypes.length);
+        let currentCharacter = characterTypes[currentCharacterIndex];
+        
         let bird = {
             x: 80,
             y: canvasHeight / 2,
             velocity: 0,
-            radius: 15,
-            speedVariation: 0
+            radius: currentCharacter.radius,
+            speedVariation: 0,
+            type: currentCharacter.type
         };
         
         let pipes = [];
@@ -95,8 +127,8 @@
         let gameStarted = false;
         let difficulty = 1; // Starting difficulty
         
-        let gravity = 0.5;
-        let jumpStrength = -8;
+        let gravity = currentCharacter.gravity;
+        let jumpStrength = currentCharacter.jumpStrength;
         let lastPipeX = -1000; // Initial value to track last pipe position
         
         // Game has no audio
@@ -112,6 +144,19 @@
                 ctx.rotate(angle);
             }
             
+            // Draw the appropriate character based on type
+            if (bird.type === 'crab') {
+                drawCrab();
+            } else if (bird.type === 'bird') {
+                drawBirdCharacter();
+            } else if (bird.type === 'apple') {
+                drawApple();
+            }
+            
+            ctx.restore();
+        }
+        
+        function drawCrab() {
             // Crab body (main circle - red)
             ctx.fillStyle = '#FF4136'; // Bright red for crab
             ctx.beginPath();
@@ -208,8 +253,100 @@
                 ctx.lineTo(bird.radius * 0.7 + legLength, -legSpacing + (i * legSpacing) + legLength);
                 ctx.stroke();
             }
+        }
+        
+        function drawBirdCharacter() {
+            // Bird body (main circle - yellow)
+            ctx.fillStyle = '#FFDD00'; // Bright yellow
+            ctx.beginPath();
+            ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+            ctx.fill();
             
-            ctx.restore();
+            // Wing
+            ctx.fillStyle = '#FFB700'; // Darker yellow/orange
+            ctx.beginPath();
+            ctx.ellipse(-2, 2, bird.radius * 0.7, bird.radius * 0.5, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eyes
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(bird.radius * 0.4, -bird.radius * 0.2, bird.radius * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Pupil
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(bird.radius * 0.5, -bird.radius * 0.2, bird.radius * 0.15, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Beak
+            ctx.fillStyle = '#FF6A00'; // Orange
+            ctx.beginPath();
+            ctx.moveTo(bird.radius * 0.8, 0);
+            ctx.lineTo(bird.radius * 1.5, bird.radius * 0.2);
+            ctx.lineTo(bird.radius * 0.8, bird.radius * 0.4);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Tail feathers
+            ctx.fillStyle = '#FFEE99';
+            ctx.beginPath();
+            ctx.moveTo(-bird.radius * 0.8, -bird.radius * 0.5);
+            ctx.lineTo(-bird.radius * 1.5, -bird.radius * 0.8);
+            ctx.lineTo(-bird.radius * 1.4, -bird.radius * 0.3);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = '#FFCC66';
+            ctx.beginPath();
+            ctx.moveTo(-bird.radius * 0.8, 0);
+            ctx.lineTo(-bird.radius * 1.6, 0);
+            ctx.lineTo(-bird.radius * 1.4, bird.radius * 0.4);
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        function drawApple() {
+            // Apple body (main circle - green)
+            ctx.fillStyle = '#2ECC40'; // Bright green
+            ctx.beginPath();
+            ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Apple highlight (light green arc)
+            ctx.fillStyle = '#7FDBFF'; // Light blue highlight
+            ctx.beginPath();
+            ctx.arc(bird.radius * 0.4, -bird.radius * 0.4, bird.radius * 0.4, 0, Math.PI * 0.5);
+            ctx.fill();
+            
+            // Apple stem
+            ctx.fillStyle = '#85144b'; // Brown
+            ctx.beginPath();
+            ctx.rect(-bird.radius * 0.1, -bird.radius, bird.radius * 0.2, bird.radius * 0.3);
+            ctx.fill();
+            
+            // Leaf
+            ctx.fillStyle = '#3D9970'; // Darker green
+            ctx.beginPath();
+            ctx.ellipse(bird.radius * 0.3, -bird.radius * 0.9, bird.radius * 0.5, bird.radius * 0.25, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bite (white area)
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(bird.radius * 0.6, 0, bird.radius * 0.5, 0, Math.PI * 0.5);
+            ctx.fill();
+            
+            // Apple seeds (small black dots)
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(bird.radius * 0.3, bird.radius * 0.2, bird.radius * 0.1, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(bird.radius * 0.1, bird.radius * 0.4, bird.radius * 0.08, 0, Math.PI * 2);
+            ctx.fill();
         }
         
         function drawPipes() {
@@ -328,7 +465,17 @@
                 ctx.fillStyle = 'white';
                 ctx.font = '24px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText('Tap to Start', canvasWidth / 2, canvasHeight / 2);
+                ctx.fillText('Tap to Start', canvasWidth / 2, canvasHeight / 2 - 40);
+                
+                // Show which character is currently active
+                ctx.font = '18px Arial';
+                ctx.fillStyle = currentCharacter.color;
+                ctx.fillText('Playing as: ' + currentCharacter.type.toUpperCase(), canvasWidth / 2, canvasHeight / 2);
+                
+                // Show character traits
+                ctx.font = '14px Arial';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fillText(currentCharacter.description, canvasWidth / 2, canvasHeight / 2 + 25);
             }
         }
         
@@ -565,12 +712,14 @@
                 difficulty = newDifficulty;
                 
                 if (difficulty === 1) {
-                    // Base difficulty settings
+                    // Base difficulty settings - use current character parameters
                     pipeSpeed = 3;
                     gapHeight = 170; // Increased gap height for easier play
                     pipeSpawnInterval = 120; // Increased spawn interval
-                    gravity = 0.5;
-                    jumpStrength = -8;
+                    
+                    // Set physics based on the current character
+                    gravity = currentCharacter.gravity;
+                    jumpStrength = currentCharacter.jumpStrength;
                 } else {
                     // After 10 points, make it gradually harder
                     const difficultyFactor = difficulty - 1;
@@ -584,9 +733,9 @@
                     // Increase spawn interval at higher difficulties to ensure more spacing
                     pipeSpawnInterval = 120 + (difficultyFactor * 6); 
                     
-                    // Gravity and jump adjustments
-                    gravity = 0.5 + (difficultyFactor * 0.04); // Gravity increases slightly
-                    jumpStrength = -8 - (difficultyFactor * 0.15); // Jump strength increases to compensate
+                    // Gravity and jump adjustments based on character type
+                    gravity = currentCharacter.gravity + (difficultyFactor * 0.04); // Gravity increases slightly
+                    jumpStrength = currentCharacter.jumpStrength - (difficultyFactor * 0.15); // Jump strength increases to compensate
                     
                     // Ensure values stay within reasonable limits
                     gapHeight = Math.max(140, gapHeight); // Keep gaps large enough to pass through
@@ -611,14 +760,23 @@
         }
         
         function restartGame() {
-            // Reset game state
+            // Change to a new random character
+            currentCharacterIndex = (currentCharacterIndex + 1) % characterTypes.length;
+            currentCharacter = characterTypes[currentCharacterIndex];
+            
+            // Reset game state with new character properties
             bird = {
                 x: 80,
                 y: canvasHeight / 2,
                 velocity: 0,
-                radius: 15,
-                speedVariation: 0
+                radius: currentCharacter.radius,
+                speedVariation: 0,
+                type: currentCharacter.type
             };
+            
+            // Reset game physics for new character
+            gravity = currentCharacter.gravity;
+            jumpStrength = currentCharacter.jumpStrength;
             
             pipes = [];
             score = 0;
