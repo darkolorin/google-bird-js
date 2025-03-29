@@ -39,26 +39,6 @@
             tgApp.expand();
             tgApp.ready();
         }
-        
-        // Preload audio - simplified version
-        function loadAudio() {
-            try {
-                // Create sound effects - using existing files
-                bgMusic = new Audio('assets/sounds/flap.wav');  // Reuse existing sound as background
-                bgMusic.loop = true;
-                bgMusic.volume = 0.5;
-                
-                flapSound = new Audio('assets/sounds/flap.wav');
-                hitSound = new Audio('assets/sounds/hit.wav');
-                scoreSound = new Audio('assets/sounds/score.wav');
-            } catch (e) {
-                console.error("Error loading audio:", e);
-                soundEnabled = false;
-            }
-        }
-        
-        // Call the audio loading function
-        loadAudio();
 
         // Get canvas and context
         const canvas = document.getElementById('gameCanvas');
@@ -118,12 +98,7 @@
         let jumpStrength = -8;
         let lastPipeX = -1000; // Initial value to track last pipe position
         
-        // Audio elements
-        let bgMusic;
-        let flapSound;
-        let hitSound;
-        let scoreSound;
-        let soundEnabled = true;
+        // Game has no audio
         
         // Game functions
         function drawBird() {
@@ -433,12 +408,6 @@
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x - bird.radius) {
                     pipe.scored = true;
                     score++;
-                    
-                    // Play score sound
-                    if (soundEnabled && scoreSound) {
-                        scoreSound.currentTime = 0;
-                        scoreSound.play().catch(e => console.error("Error playing score sound:", e));
-                    }
                 }
                 
                 // Check collision with pipe - improved collision detection
@@ -583,17 +552,6 @@
         function endGame() {
             gameOver = true;
             
-            // Play hit sound
-            if (soundEnabled && hitSound) {
-                hitSound.currentTime = 0;
-                hitSound.play().catch(e => console.error("Error playing hit sound:", e));
-            }
-            
-            // Pause background music
-            if (soundEnabled && bgMusic) {
-                bgMusic.pause();
-            }
-            
             // Send score to Telegram if running in Telegram Mini App
             if (tgApp) {
                 try {
@@ -619,12 +577,6 @@
             gameOver = false;
             gameStarted = false;
             frames = 0;
-            
-            // Restart music if enabled
-            if (soundEnabled && bgMusic) {
-                bgMusic.currentTime = 0;
-                bgMusic.play().catch(e => console.error("Error playing music:", e));
-            }
         }
         
         // Input handling
@@ -663,23 +615,11 @@
             // Start game if not started
             if (!gameStarted) {
                 gameStarted = true;
-                
-                // Start background music
-                if (soundEnabled && bgMusic) {
-                    bgMusic.play().catch(e => console.error("Error playing background music:", e));
-                }
-                
                 return;
             }
             
             // Jump
             bird.velocity = jumpStrength;
-            
-            // Play flap sound
-            if (soundEnabled && flapSound) {
-                flapSound.currentTime = 0;
-                flapSound.play().catch(e => console.error("Error playing flap sound:", e));
-            }
         }
         
         canvas.addEventListener('click', handleTap);
