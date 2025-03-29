@@ -141,11 +141,17 @@
                 // Base pipe color
                 ctx.fillStyle = pipeColor;
                 
-                // Calculate pipe color based on difficulty - gets darker as difficulty increases
-                if (difficulty > 1) {
+                // Color changes only after score > 10
+                if (score > 10) {
                     // Darkens the pipe color based on difficulty
-                    const difficultyColor = Math.max(0, 170 - difficulty * 15); // Darker green
+                    const difficultyFactor = difficulty - 1;
+                    const difficultyColor = Math.max(0, 170 - difficultyFactor * 20); // Darker green
                     ctx.fillStyle = `rgb(0, ${difficultyColor}, 0)`;
+                    
+                    // After score 20, add red tint to show extreme difficulty
+                    if (score > 20) {
+                        ctx.fillStyle = `rgb(${Math.min(255, (score - 20) * 10)}, ${difficultyColor}, 0)`;
+                    }
                 }
                 
                 // Top pipe
@@ -159,11 +165,11 @@
                     canvasHeight - (pipe.gapY + gapHeight)
                 );
                 
-                // Add a16z logo to pipes when difficulty is higher
-                if (difficulty >= 3) {
+                // Add a16z logo to pipes only after score > 10
+                if (score > 10) {
                     // Draw the a16z branding on pipes
                     ctx.fillStyle = 'white';
-                    ctx.font = '16px Arial';
+                    ctx.font = 'bold 16px Arial';
                     ctx.textAlign = 'center';
                     
                     // Top pipe logo
@@ -186,7 +192,7 @@
         }
         
         function drawScore() {
-            // Display score with different styles based on level
+            // Display score with different styles based on score
             ctx.textAlign = 'center';
             
             // Add shadow for visibility
@@ -195,13 +201,13 @@
             ctx.shadowOffsetX = 2;
             ctx.shadowOffsetY = 2;
             
-            // Change score appearance based on difficulty
-            if (difficulty <= 3) {
+            // Score <= 10 always looks the same
+            if (score <= 10) {
                 // Normal score
                 ctx.fillStyle = 'white';
                 ctx.font = '32px Arial';
                 ctx.fillText(score, canvasWidth / 2, 50);
-            } else if (difficulty <= 6) {
+            } else if (score <= 15) {
                 // Medium difficulty - brighter score
                 ctx.fillStyle = '#FFDD00';
                 ctx.font = 'bold 32px Arial';
@@ -214,13 +220,22 @@
                 ctx.setTransform(pulseAmount, 0, 0, pulseAmount, canvasWidth / 2, 50);
                 ctx.fillText(score, 0, 0);
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
+                
+                // Add warning text for extreme difficulty
+                if (score > 20) {
+                    ctx.fillStyle = 'red';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.fillText('EXTREME MODE', canvasWidth / 2, 75);
+                }
             }
             
-            // Display current difficulty level for player feedback
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.font = '14px Arial';
-            ctx.shadowBlur = 2;
-            ctx.fillText('Level: ' + difficulty, canvasWidth / 2, 80);
+            // Only show difficulty level if score > 10
+            if (score > 10) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.font = '14px Arial';
+                ctx.shadowBlur = 2;
+                ctx.fillText('Level: ' + difficulty, canvasWidth / 2, score > 20 ? 95 : 80);
+            }
             
             // Reset shadow
             ctx.shadowColor = 'transparent';
@@ -348,25 +363,47 @@
         
         // Update game difficulty based on score
         function updateDifficulty() {
-            // Calculate new difficulty
-            const newDifficulty = Math.min(10, 1 + Math.floor(score / 5));
+            // Keep difficulty constant until score > 10
+            // Then increase difficulty more rapidly
+            let newDifficulty;
+            
+            if (score <= 10) {
+                newDifficulty = 1; // Keep at level 1 for first 10 points
+            } else {
+                // After score > 10, increase difficulty more rapidly
+                // Each point increases difficulty by 0.5 levels
+                newDifficulty = Math.min(10, 1 + Math.floor((score - 10) * 0.5));
+            }
             
             // Only update if difficulty has changed
             if (newDifficulty !== difficulty) {
                 difficulty = newDifficulty;
                 
-                // Adjust game parameters based on difficulty
-                pipeSpeed = 3 + (difficulty * 0.5); // Pipes move faster
-                gapHeight = 150 - (difficulty * 5); // Gap gets smaller
-                pipeSpawnInterval = 100 - (difficulty * 5); // Pipes spawn more frequently
-                gravity = 0.5 + (difficulty * 0.05); // Gravity increases
-                jumpStrength = -8 - (difficulty * 0.2); // Jump strength increases to compensate
-                
-                // Ensure values stay within reasonable limits
-                gapHeight = Math.max(80, gapHeight); // Not too small
-                pipeSpawnInterval = Math.max(40, pipeSpawnInterval); // Not too frequent
-                
-                console.log("Difficulty increased to:", difficulty);
+                if (difficulty === 1) {
+                    // Base difficulty settings
+                    pipeSpeed = 3;
+                    gapHeight = 150;
+                    pipeSpawnInterval = 100;
+                    gravity = 0.5;
+                    jumpStrength = -8;
+                } else {
+                    // After 10 points, make it much harder
+                    // Increase difficulty more rapidly
+                    const difficultyFactor = difficulty - 1;
+                    
+                    // Adjust game parameters based on difficulty (more aggressive scaling)
+                    pipeSpeed = 3 + (difficultyFactor * 0.8); // Pipes move faster
+                    gapHeight = 150 - (difficultyFactor * 8); // Gap gets smaller faster
+                    pipeSpawnInterval = 100 - (difficultyFactor * 7); // Pipes spawn more frequently
+                    gravity = 0.5 + (difficultyFactor * 0.08); // Gravity increases faster
+                    jumpStrength = -8 - (difficultyFactor * 0.3); // Jump strength increases to compensate
+                    
+                    // Ensure values stay within reasonable limits
+                    gapHeight = Math.max(70, gapHeight); // Allow even smaller gaps
+                    pipeSpawnInterval = Math.max(35, pipeSpawnInterval); // Allow more frequent spawns
+                    
+                    console.log("Difficulty increased to:", difficulty);
+                }
             }
         }
         
