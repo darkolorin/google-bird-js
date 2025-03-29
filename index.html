@@ -82,16 +82,19 @@
         };
         
         let pipes = [];
-        const pipeWidth = 50;
-        const gapHeight = 150;
+        let pipeWidth = 50;
+        let gapHeight = 150;
+        let pipeSpeed = 3;
+        let pipeSpawnInterval = 100; // Frames between pipe spawns
         const pipeColor = '#33aa33';
         
         let score = 0;
         let gameOver = false;
         let gameStarted = false;
+        let difficulty = 1; // Starting difficulty
         
-        const gravity = 0.5;
-        const jumpStrength = -8;
+        let gravity = 0.5;
+        let jumpStrength = -8;
         
         // Game functions
         function drawBird() {
@@ -134,9 +137,17 @@
         }
         
         function drawPipes() {
-            ctx.fillStyle = pipeColor;
-            
             pipes.forEach(pipe => {
+                // Base pipe color
+                ctx.fillStyle = pipeColor;
+                
+                // Calculate pipe color based on difficulty - gets darker as difficulty increases
+                if (difficulty > 1) {
+                    // Darkens the pipe color based on difficulty
+                    const difficultyColor = Math.max(0, 170 - difficulty * 15); // Darker green
+                    ctx.fillStyle = `rgb(0, ${difficultyColor}, 0)`;
+                }
+                
                 // Top pipe
                 ctx.fillRect(pipe.x, 0, pipeWidth, pipe.gapY);
                 
@@ -147,6 +158,25 @@
                     pipeWidth, 
                     canvasHeight - (pipe.gapY + gapHeight)
                 );
+                
+                // Add a16z logo to pipes when difficulty is higher
+                if (difficulty >= 3) {
+                    // Draw the a16z branding on pipes
+                    ctx.fillStyle = 'white';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    
+                    // Top pipe logo
+                    if (pipe.gapY > 50) {
+                        ctx.fillText('a16z', pipe.x + pipeWidth/2, pipe.gapY - 20);
+                    }
+                    
+                    // Bottom pipe logo
+                    const bottomTextY = pipe.gapY + gapHeight + 40;
+                    if (bottomTextY < canvasHeight - 40) {
+                        ctx.fillText('a16z', pipe.x + pipeWidth/2, bottomTextY);
+                    }
+                }
             });
         }
         
@@ -156,10 +186,47 @@
         }
         
         function drawScore() {
-            ctx.fillStyle = 'white';
-            ctx.font = '32px Arial';
+            // Display score with different styles based on level
             ctx.textAlign = 'center';
-            ctx.fillText(score, canvasWidth / 2, 50);
+            
+            // Add shadow for visibility
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            // Change score appearance based on difficulty
+            if (difficulty <= 3) {
+                // Normal score
+                ctx.fillStyle = 'white';
+                ctx.font = '32px Arial';
+                ctx.fillText(score, canvasWidth / 2, 50);
+            } else if (difficulty <= 6) {
+                // Medium difficulty - brighter score
+                ctx.fillStyle = '#FFDD00';
+                ctx.font = 'bold 32px Arial';
+                ctx.fillText(score, canvasWidth / 2, 50);
+            } else {
+                // High difficulty - animated score
+                const pulseAmount = Math.sin(frames / 10) * 0.1 + 1;
+                ctx.fillStyle = '#FF5500';
+                ctx.font = 'bold 36px Arial';
+                ctx.setTransform(pulseAmount, 0, 0, pulseAmount, canvasWidth / 2, 50);
+                ctx.fillText(score, 0, 0);
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+            }
+            
+            // Display current difficulty level for player feedback
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '14px Arial';
+            ctx.shadowBlur = 2;
+            ctx.fillText('Level: ' + difficulty, canvasWidth / 2, 80);
+            
+            // Reset shadow
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
         }
         
         function drawGameStartText() {
@@ -176,24 +243,37 @@
                 ctx.fillStyle = 'white';
                 ctx.font = '32px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText('Game Over', canvasWidth / 2, canvasHeight / 2 - 50);
+                ctx.fillText('Game Over', canvasWidth / 2, canvasHeight / 2 - 70);
                 
                 // Draw score
                 ctx.font = '24px Arial';
-                ctx.fillText('Score: ' + score, canvasWidth / 2, canvasHeight / 2);
+                ctx.fillText('Score: ' + score, canvasWidth / 2, canvasHeight / 2 - 30);
+                
+                // Special message for scores higher than 10
+                if (score > 10) {
+                    ctx.fillStyle = '#FFD700'; // Gold color
+                    ctx.font = 'bold 20px Arial';
+                    ctx.fillText('a16z passed this time!', canvasWidth / 2, canvasHeight / 2 + 10);
+                    
+                    // Add subtle glow effect
+                    ctx.shadowColor = '#FFD700';
+                    ctx.shadowBlur = 10;
+                    ctx.fillText('a16z passed this time!', canvasWidth / 2, canvasHeight / 2 + 10);
+                    ctx.shadowBlur = 0;
+                }
                 
                 // Draw restart button
                 ctx.fillStyle = '#33aa33';
                 ctx.beginPath();
-                ctx.arc(canvasWidth / 2, canvasHeight / 2 + 50, 30, 0, Math.PI * 2);
+                ctx.arc(canvasWidth / 2, canvasHeight / 2 + 60, 30, 0, Math.PI * 2);
                 ctx.fill();
                 
                 // Draw play triangle
                 ctx.fillStyle = 'white';
                 ctx.beginPath();
-                ctx.moveTo(canvasWidth / 2 + 10, canvasHeight / 2 + 50);
-                ctx.lineTo(canvasWidth / 2 - 5, canvasHeight / 2 + 35);
-                ctx.lineTo(canvasWidth / 2 - 5, canvasHeight / 2 + 65);
+                ctx.moveTo(canvasWidth / 2 + 10, canvasHeight / 2 + 60);
+                ctx.lineTo(canvasWidth / 2 - 5, canvasHeight / 2 + 45);
+                ctx.lineTo(canvasWidth / 2 - 5, canvasHeight / 2 + 75);
                 ctx.closePath();
                 ctx.fill();
             }
@@ -221,9 +301,12 @@
         function updatePipes() {
             if (!gameStarted || gameOver) return;
             
+            // Increase difficulty based on score
+            updateDifficulty();
+            
             // Move pipes to the left
             pipes.forEach(pipe => {
-                pipe.x -= 3;
+                pipe.x -= pipeSpeed;
                 
                 // Check if bird passed the pipe
                 if (!pipe.scored && pipe.x + pipeWidth < bird.x - bird.radius) {
@@ -249,13 +332,41 @@
             // Remove pipes that have gone off screen
             pipes = pipes.filter(pipe => pipe.x > -pipeWidth);
             
-            // Add new pipe at regular intervals
-            if (frames % 100 === 0) {
+            // Add new pipe at regular intervals, adjusted by difficulty
+            if (frames % pipeSpawnInterval === 0) {
+                // Make the gap position more challenging based on difficulty
+                const minGapY = 80 + (difficulty * 5); // Higher minimum as difficulty increases
+                const maxGapY = (canvasHeight - gapHeight - 80) - (difficulty * 5); // Lower maximum
+                
                 pipes.push({
                     x: canvasWidth,
-                    gapY: Math.floor(Math.random() * (canvasHeight - gapHeight - 200)) + 80,
+                    gapY: Math.floor(Math.random() * (maxGapY - minGapY)) + minGapY,
                     scored: false
                 });
+            }
+        }
+        
+        // Update game difficulty based on score
+        function updateDifficulty() {
+            // Calculate new difficulty
+            const newDifficulty = Math.min(10, 1 + Math.floor(score / 5));
+            
+            // Only update if difficulty has changed
+            if (newDifficulty !== difficulty) {
+                difficulty = newDifficulty;
+                
+                // Adjust game parameters based on difficulty
+                pipeSpeed = 3 + (difficulty * 0.5); // Pipes move faster
+                gapHeight = 150 - (difficulty * 5); // Gap gets smaller
+                pipeSpawnInterval = 100 - (difficulty * 5); // Pipes spawn more frequently
+                gravity = 0.5 + (difficulty * 0.05); // Gravity increases
+                jumpStrength = -8 - (difficulty * 0.2); // Jump strength increases to compensate
+                
+                // Ensure values stay within reasonable limits
+                gapHeight = Math.max(80, gapHeight); // Not too small
+                pipeSpawnInterval = Math.max(40, pipeSpawnInterval); // Not too frequent
+                
+                console.log("Difficulty increased to:", difficulty);
             }
         }
         
@@ -309,10 +420,10 @@
                 const scaledX = clickX * scaleX;
                 const scaledY = clickY * scaleY;
                 
-                // Check if click is on restart button
+                // Check if click is on restart button (adjusted for new position)
                 const distance = Math.sqrt(
                     Math.pow(scaledX - canvasWidth / 2, 2) + 
-                    Math.pow(scaledY - (canvasHeight / 2 + 50), 2)
+                    Math.pow(scaledY - (canvasHeight / 2 + 60), 2)
                 );
                 
                 if (distance <= 30) {
