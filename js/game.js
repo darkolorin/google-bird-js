@@ -1,23 +1,30 @@
-// Initialize Telegram Mini App
+// Initialize Telegram
 const tgApp = window.Telegram?.WebApp;
 if (tgApp) {
     tgApp.expand();
     tgApp.ready();
 }
 
-// Game configuration
-const config = {
+// Simple fullscreen game
+const gameConfig = {
     type: Phaser.AUTO,
-    width: 360,
-    height: 640,
-    parent: 'game-container',
+    width: window.innerWidth,
+    height: window.innerHeight,
     backgroundColor: '#71c5cf',
+    parent: 'game-container',
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 1000 },
+            gravity: { y: 1200 },
             debug: false
         }
+    },
+    scale: {
+        mode: Phaser.Scale.RESIZE,
+        parent: 'game-container',
+        width: '100%',
+        height: '100%',
+        autoCenter: Phaser.Scale.CENTER_BOTH
     },
     scene: {
         preload: preload,
@@ -26,137 +33,179 @@ const config = {
     }
 };
 
-// Initialize Phaser game
-let game = new Phaser.Game(config);
-
-// Game variables
+// Global variables
 let bird;
 let pipes;
-let gap = 125;
-let nextPipes = 0;
+let ground;
 let score = 0;
 let scoreText;
-let gameOver = false;
 let gameStarted = false;
-let tapToStartText;
+let gameOver = false;
+let tapText;
 let gameOverText;
-let restartButton;
-let ground;
+let restartBtn;
+let pipeTimer;
 
-// Asset loading
+// Create game instance
+let game = new Phaser.Game(gameConfig);
+
 function preload() {
-    // Nothing to load
+    // No preloading needed
 }
 
-// Game initialization
 function create() {
-    console.log("Creating game scene");
+    // Get game dimensions
+    const gameWidth = this.scale.width;
+    const gameHeight = this.scale.height;
     
-    // Add background
-    this.add.rectangle(0, 0, config.width, config.height, 0x71c5cf).setOrigin(0, 0);
+    // Create sky
+    this.add.rectangle(0, 0, gameWidth, gameHeight, 0x71c5cf).setOrigin(0, 0);
     
     // Add ground
+    const groundHeight = gameHeight * 0.1;
     ground = this.physics.add.staticGroup();
-    const groundObj = ground.create(config.width/2, config.height - 30);
+    let groundObj = ground.create(gameWidth/2, gameHeight - groundHeight/2);
     groundObj.setVisible(false);
-    groundObj.setDisplaySize(config.width, 60);
+    groundObj.displayWidth = gameWidth * 1.2;
+    groundObj.displayHeight = groundHeight;
     groundObj.refreshBody();
     
-    // Draw ground
-    this.add.rectangle(config.width/2, config.height - 30, config.width, 60, 0xDED895);
+    // Draw visible ground 
+    this.add.rectangle(gameWidth/2, gameHeight - groundHeight/2, gameWidth, groundHeight, 0xDED895);
     
     // Add bird
-    bird = this.physics.add.sprite(80, config.height/2);
-    bird.body.setSize(30, 30);
-    
-    // Draw bird
-    this.birdGraphic = this.add.circle(bird.x, bird.y, 15, 0xFFFF00);
-    
+    bird = this.physics.add.sprite(gameWidth * 0.2, gameHeight * 0.5);
+    bird.setSize(40, 40);
+    bird.setVisible(false);
     bird.setCollideWorldBounds(true);
     bird.body.allowGravity = false;
     
-    // Add pipes group
+    // Create bird appearance
+    this.birdGroup = this.add.group();
+    
+    // Bird body
+    const birdCircle = this.add.circle(bird.x, bird.y, 20, 0xFFEB3B);
+    this.birdGroup.add(birdCircle);
+    
+    // Bird eye
+    const birdEye = this.add.circle(bird.x + 10, bird.y - 5, 6, 0xFFFFFF);
+    const birdPupil = this.add.circle(bird.x + 12, bird.y - 5, 3, 0x000000);
+    this.birdGroup.add(birdEye);
+    this.birdGroup.add(birdPupil);
+    
+    // Bird beak
+    const beakShape = new Phaser.Geom.Triangle(
+        bird.x + 20, bird.y,
+        bird.x + 35, bird.y - 5,
+        bird.x + 35, bird.y + 5
+    );
+    const birdBeak = this.add.graphics();
+    birdBeak.fillStyle(0xFF9800, 1);
+    birdBeak.fillTriangleShape(beakShape);
+    this.birdGroup.add(birdBeak);
+    
+    // Create pipes group
     pipes = this.physics.add.group();
+    
+    // Text elements
+    const fontConfig = { fontFamily: 'Arial', fontSize: '32px', color: '#ffffff' };
+    
+    // Score text
+    scoreText = this.add.text(gameWidth/2, gameHeight * 0.1, '0', fontConfig).setOrigin(0.5);
+    
+    // Tap to start text
+    tapText = this.add.text(gameWidth/2, gameHeight/2, 'Tap to Start', fontConfig).setOrigin(0.5);
+    
+    // Game over text (hidden initially)
+    gameOverText = this.add.text(gameWidth/2, gameHeight * 0.4, 'Game Over', fontConfig).setOrigin(0.5);
+    gameOverText.visible = false;
+    
+    // Create restart button (hidden initially)
+    const buttonSize = Math.min(gameWidth, gameHeight) * 0.15;
+    restartBtn = this.add.circle(gameWidth/2, gameHeight * 0.6, buttonSize/2, 0x4CAF50);
+    restartBtn.setInteractive();
+    restartBtn.visible = false;
+    
+    // Add triangle to restart button
+    const triangleSize = buttonSize * 0.4;
+    const triangle = this.add.triangle(
+        gameWidth/2, gameHeight * 0.6,
+        -triangleSize/2, -triangleSize/2,
+        triangleSize, 0,
+        -triangleSize/2, triangleSize/2,
+        0xFFFFFF
+    );
+    triangle.visible = false;
+    restartBtn.triangle = triangle;
     
     // Set up collisions
     this.physics.add.collider(bird, ground, hitObstacle, null, this);
     this.physics.add.collider(bird, pipes, hitObstacle, null, this);
     
-    // Add score text
-    scoreText = this.add.text(config.width/2, 50, '0', { fontSize: '32px', fill: '#fff' });
-    scoreText.setOrigin(0.5);
-    
-    // Add tap to start text
-    tapToStartText = this.add.text(config.width/2, config.height/2, 'Tap to Start', { fontSize: '24px', fill: '#fff' });
-    tapToStartText.setOrigin(0.5);
-    
-    // Add game over text (hidden initially)
-    gameOverText = this.add.text(config.width/2, config.height/2 - 50, 'Game Over', { fontSize: '40px', fill: '#fff' });
-    gameOverText.setOrigin(0.5);
-    gameOverText.visible = false;
-    
-    // Add restart button (hidden initially)
-    restartButton = this.add.circle(config.width/2, config.height/2 + 50, 30, 0x00FF00);
-    restartButton.setInteractive();
-    restartButton.on('pointerdown', restartGame, this);
-    restartButton.visible = false;
-    
-    // Set up input
+    // Input
     this.input.on('pointerdown', flapBird, this);
+    restartBtn.on('pointerdown', restartGame, this);
 }
 
-// Game loop
-function update(time) {
-    // Update bird graphic position
-    if (this.birdGraphic) {
-        this.birdGraphic.x = bird.x;
-        this.birdGraphic.y = bird.y;
-    }
-    
-    if (gameOver) return;
-    
-    if (!gameStarted) return;
-    
-    // Generate pipes
-    if (time > nextPipes) {
-        createPipes(this);
-        nextPipes = time + 1500;
-    }
-    
-    // Update pipes and check for scoring
-    pipes.getChildren().forEach(pipe => {
-        // Move pipe graphic
-        if (pipe.pipeGraphic) {
-            pipe.pipeGraphic.x = pipe.x;
-            pipe.pipeGraphic.y = pipe.y;
+function update() {
+    // Update bird graphics to match physics body
+    const birdParts = this.birdGroup.getChildren();
+    if (birdParts.length >= 4) {
+        // Body
+        birdParts[0].x = bird.x;
+        birdParts[0].y = bird.y;
+        
+        // Eye white
+        birdParts[1].x = bird.x + 10;
+        birdParts[1].y = bird.y - 5;
+        
+        // Eye pupil
+        birdParts[2].x = bird.x + 12;
+        birdParts[2].y = bird.y - 5;
+        
+        // Beak - need to redraw it
+        birdParts[3].clear();
+        birdParts[3].fillStyle(0xFF9800, 1);
+        
+        // Apply rotation to the beak based on velocity
+        let rotation = 0;
+        if (gameStarted && !gameOver) {
+            rotation = Phaser.Math.Clamp(bird.body.velocity.y / 20, -0.5, 0.5);
         }
         
-        // Score when passing pipes
-        if (pipe.x + 30 < bird.x && !pipe.scored && pipe.y < config.height / 2) {
+        const beakShape = new Phaser.Geom.Triangle(
+            bird.x + 20, bird.y,
+            bird.x + 35, bird.y - 5 + rotation * 10,
+            bird.x + 35, bird.y + 5 + rotation * 10
+        );
+        birdParts[3].fillTriangleShape(beakShape);
+    }
+    
+    if (gameOver || !gameStarted) return;
+    
+    // Move and remove pipes that are off screen
+    pipes.getChildren().forEach(pipe => {
+        // Update the visible graphics to match physics objects
+        if (pipe.graphics) {
+            pipe.graphics.x = pipe.x;
+            pipe.graphics.y = pipe.y;
+        }
+        
+        // Score when middle of pipes passed
+        if (!pipe.scored && pipe.x < bird.x && pipe.y < bird.y) {
             pipe.scored = true;
             score++;
             scoreText.setText(score.toString());
         }
         
-        // Remove pipes when off screen
-        if (pipe.x < -60) {
-            if (pipe.pipeGraphic) pipe.pipeGraphic.destroy();
+        // Remove pipes that are off screen
+        if (pipe.x < -100) {
+            if (pipe.graphics) pipe.graphics.destroy();
             pipe.destroy();
         }
     });
 }
 
-// Start game
-function startGame() {
-    gameStarted = true;
-    bird.body.allowGravity = true;
-    tapToStartText.visible = false;
-    
-    // Initial flap
-    bird.body.velocity.y = -350;
-}
-
-// Bird flap action
 function flapBird() {
     if (gameOver) return;
     
@@ -165,38 +214,87 @@ function flapBird() {
         return;
     }
     
-    bird.body.velocity.y = -350;
+    // Flap!
+    bird.body.velocity.y = -400;
 }
 
-// Create pipes
-function createPipes(scene) {
-    // Calculate gap position
-    const pipeY = Phaser.Math.Between(150, config.height - gap - 150);
+function startGame() {
+    gameStarted = true;
+    bird.body.allowGravity = true;
+    tapText.visible = false;
     
-    // Create top pipe
-    const topPipe = pipes.create(config.width + 40, pipeY - 150);
-    topPipe.body.setSize(50, 300);
+    // Initial jump
+    bird.body.velocity.y = -400;
+    
+    // Set timer for pipe generation
+    const pipeInterval = 1500; // ms
+    pipeTimer = this.time.addEvent({
+        delay: pipeInterval,
+        callback: createPipes,
+        callbackScope: this,
+        loop: true
+    });
+}
+
+function createPipes() {
+    if (gameOver) return;
+    
+    const gameWidth = this.scale.width;
+    const gameHeight = this.scale.height;
+    
+    // Pipe dimensions as percentages of screen
+    const pipeWidth = gameWidth * 0.15;
+    const gap = gameHeight * 0.25;
+    
+    // Calculate random gap position
+    const minY = gameHeight * 0.2;
+    const maxY = gameHeight * 0.8 - gap;
+    const gapY = Phaser.Math.Between(minY, maxY);
+    
+    // Top pipe
+    const pipeTopHeight = gapY;
+    const topPipe = pipes.create(gameWidth + pipeWidth/2, pipeTopHeight/2);
+    topPipe.setVisible(false);
     topPipe.body.allowGravity = false;
     topPipe.scored = false;
+    topPipe.body.setSize(pipeWidth, pipeTopHeight);
+    topPipe.body.velocity.x = -200;
     
     // Draw top pipe
-    topPipe.pipeGraphic = scene.add.rectangle(topPipe.x, topPipe.y, 50, 300, 0x4CAF50);
+    const topPipeGraphics = this.add.graphics();
+    topPipeGraphics.fillStyle(0x4CAF50, 1);
+    topPipeGraphics.fillRect(-pipeWidth/2, -pipeTopHeight/2, pipeWidth, pipeTopHeight);
     
-    // Create bottom pipe
-    const bottomPipe = pipes.create(config.width + 40, pipeY + gap + 150);
-    bottomPipe.body.setSize(50, 300);
+    // Add rim to top pipe
+    topPipeGraphics.fillStyle(0x388E3C, 1);
+    topPipeGraphics.fillRect(-pipeWidth/2 - 5, pipeTopHeight/2 - 20, pipeWidth + 10, 20);
+    
+    topPipeGraphics.x = gameWidth + pipeWidth/2;
+    topPipeGraphics.y = pipeTopHeight/2;
+    topPipe.graphics = topPipeGraphics;
+    
+    // Bottom pipe
+    const pipeBottomHeight = gameHeight - gapY - gap - gameHeight * 0.1; // Subtract ground height
+    const bottomPipe = pipes.create(gameWidth + pipeWidth/2, gapY + gap + pipeBottomHeight/2);
+    bottomPipe.setVisible(false);
     bottomPipe.body.allowGravity = false;
-    bottomPipe.scored = false;
+    bottomPipe.body.setSize(pipeWidth, pipeBottomHeight);
+    bottomPipe.body.velocity.x = -200;
     
     // Draw bottom pipe
-    bottomPipe.pipeGraphic = scene.add.rectangle(bottomPipe.x, bottomPipe.y, 50, 300, 0x4CAF50);
+    const bottomPipeGraphics = this.add.graphics();
+    bottomPipeGraphics.fillStyle(0x4CAF50, 1);
+    bottomPipeGraphics.fillRect(-pipeWidth/2, -pipeBottomHeight/2, pipeWidth, pipeBottomHeight);
     
-    // Move pipes to the left
-    topPipe.body.velocity.x = -200;
-    bottomPipe.body.velocity.x = -200;
+    // Add rim to bottom pipe
+    bottomPipeGraphics.fillStyle(0x388E3C, 1);
+    bottomPipeGraphics.fillRect(-pipeWidth/2 - 5, -pipeBottomHeight/2, pipeWidth + 10, 20);
+    
+    bottomPipeGraphics.x = gameWidth + pipeWidth/2;
+    bottomPipeGraphics.y = gapY + gap + pipeBottomHeight/2;
+    bottomPipe.graphics = bottomPipeGraphics;
 }
 
-// Hit obstacle
 function hitObstacle() {
     if (gameOver) return;
     
@@ -206,26 +304,28 @@ function hitObstacle() {
     bird.body.velocity.y = 0;
     bird.body.allowGravity = false;
     
+    if (pipeTimer) pipeTimer.remove();
+    
     pipes.getChildren().forEach(pipe => {
         pipe.body.velocity.x = 0;
     });
     
-    // Display game over
+    // Show game over text and restart button
     gameOverText.visible = true;
-    restartButton.visible = true;
+    restartBtn.visible = true;
+    restartBtn.triangle.visible = true;
     
-    // Share score with Telegram
+    // Send score to Telegram if running in Telegram
     if (tgApp) {
         try {
             const data = { score: score };
             tgApp.sendData(JSON.stringify(data));
-        } catch (error) {
-            console.error("Error sending score:", error);
+        } catch (e) {
+            console.error("Error sending score to Telegram:", e);
         }
     }
 }
 
-// Restart game
 function restartGame() {
-    location.reload();
+    window.location.reload();
 }
