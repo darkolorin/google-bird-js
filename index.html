@@ -78,7 +78,8 @@
             x: 80,
             y: canvasHeight / 2,
             velocity: 0,
-            radius: 15
+            radius: 15,
+            speedVariation: 0
         };
         
         let pipes = [];
@@ -378,7 +379,26 @@
         function updateBird() {
             if (!gameStarted || gameOver) return;
             
-            bird.velocity += gravity;
+            // Add random speed variations for more interesting gameplay
+            // Only apply if score is above 5 to let player get used to the game first
+            if (score > 5) {
+                // Occasionally apply small random speed changes
+                if (frames % 60 === 0) { // Every ~1 second
+                    // Higher levels have more variation
+                    const variationAmount = 0.2 + (difficulty * 0.05);
+                    
+                    // Random variation between -variationAmount and +variationAmount
+                    bird.speedVariation = (Math.random() * 2 - 1) * variationAmount;
+                }
+                
+                // Apply the speed variation (with dampening over time)
+                bird.speedVariation *= 0.98; // Gradually return to normal
+            } else {
+                bird.speedVariation = 0;
+            }
+            
+            // Apply gravity plus any speed variation
+            bird.velocity += gravity + bird.speedVariation;
             bird.y += bird.velocity;
             
             // Check ground collision
@@ -489,14 +509,33 @@
             
             // Only add a pipe if the time is right AND we have enough space
             if (shouldAddPipe && canAddPipe) {
-                // Make the gap position more balanced
-                const minGapY = 100; // Keep constant minimum
-                const maxGapY = canvasHeight - gapHeight - 100; // Keep constant maximum
+                // Make the gap position more balanced and ensure pipes are passable
+                // Ensure the gap is never too close to the top or bottom
+                const minGapY = 120; // Increased minimum
+                const maxGapY = canvasHeight - gapHeight - 120; // Ensure larger margin from bottom
+                
+                // Create new pipe with a more balanced gap position
+                // We'll use a bell curve distribution for gap positions (more likely to be in middle)
+                let gapY;
+                const centerY = (minGapY + maxGapY) / 2;
+                const range = maxGapY - minGapY;
+                
+                // Generate a more balanced random gap position
+                // Average of multiple random values creates a bell curve effect
+                const numSamples = 3;
+                let totalY = 0;
+                for (let i = 0; i < numSamples; i++) {
+                    totalY += Math.random() * range + minGapY;
+                }
+                gapY = Math.floor(totalY / numSamples);
+                
+                // Ensure the gap is within valid range
+                gapY = Math.max(minGapY, Math.min(maxGapY, gapY));
                 
                 // Create new pipe
                 const newPipe = {
                     x: canvasWidth,
-                    gapY: Math.floor(Math.random() * (maxGapY - minGapY)) + minGapY,
+                    gapY: gapY,
                     scored: false
                 };
                 
@@ -528,8 +567,8 @@
                 if (difficulty === 1) {
                     // Base difficulty settings
                     pipeSpeed = 3;
-                    gapHeight = 150;
-                    pipeSpawnInterval = 110; // Slightly increased spawn interval
+                    gapHeight = 170; // Increased gap height for easier play
+                    pipeSpawnInterval = 120; // Increased spawn interval
                     gravity = 0.5;
                     jumpStrength = -8;
                 } else {
@@ -537,17 +576,20 @@
                     const difficultyFactor = difficulty - 1;
                     
                     // Adjust game parameters based on difficulty (more gradual scaling)
-                    pipeSpeed = 3 + (difficultyFactor * 0.25); // Pipes move faster (but not too fast)
-                    gapHeight = 150 - (difficultyFactor * 4); // Gap gets smaller more gradually
+                    pipeSpeed = 3 + (difficultyFactor * 0.2); // Pipes move faster (but not too fast)
+                    
+                    // More generous gap that doesn't shrink as quickly
+                    gapHeight = 170 - (difficultyFactor * 3); 
                     
                     // Increase spawn interval at higher difficulties to ensure more spacing
-                    pipeSpawnInterval = 110 + (difficultyFactor * 5); 
+                    pipeSpawnInterval = 120 + (difficultyFactor * 6); 
                     
-                    gravity = 0.5 + (difficultyFactor * 0.05); // Gravity increases slightly
-                    jumpStrength = -8 - (difficultyFactor * 0.2); // Jump strength increases to compensate
+                    // Gravity and jump adjustments
+                    gravity = 0.5 + (difficultyFactor * 0.04); // Gravity increases slightly
+                    jumpStrength = -8 - (difficultyFactor * 0.15); // Jump strength increases to compensate
                     
                     // Ensure values stay within reasonable limits
-                    gapHeight = Math.max(110, gapHeight); // Don't make gaps too small
+                    gapHeight = Math.max(140, gapHeight); // Keep gaps large enough to pass through
                     
                     console.log("Difficulty increased to:", difficulty);
                 }
@@ -574,7 +616,8 @@
                 x: 80,
                 y: canvasHeight / 2,
                 velocity: 0,
-                radius: 15
+                radius: 15,
+                speedVariation: 0
             };
             
             pipes = [];
