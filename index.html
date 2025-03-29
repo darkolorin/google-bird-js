@@ -86,7 +86,7 @@
         let gapHeight = 150;
         let pipeSpeed = 3;
         let pipeSpawnInterval = 100; // Frames between pipe spawns
-        let minPipeDistance = 200; // Minimum distance between pipes
+        let minPipeDistance = 280; // Increased minimum distance between pipes
         const pipeColor = '#33aa33';
         
         let score = 0;
@@ -471,8 +471,10 @@
                 lastPipeX = -1000;
             }
             
-            // Calculate minimum gap between pipes based on difficulty and speed
-            const minGapBetweenPipes = minPipeDistance - (difficulty * 10);
+            // Calculate minimum gap between pipes ensuring they're never too close
+            // Instead of reducing distance at higher difficulties, we keep a large minimum
+            // and add a small difficulty factor
+            const minGapBetweenPipes = minPipeDistance + (difficulty * 5);
             
             // Add new pipe if:
             // 1. It's time to add a pipe based on interval, AND
@@ -527,7 +529,7 @@
                     // Base difficulty settings
                     pipeSpeed = 3;
                     gapHeight = 150;
-                    pipeSpawnInterval = 100;
+                    pipeSpawnInterval = 110; // Slightly increased spawn interval
                     gravity = 0.5;
                     jumpStrength = -8;
                 } else {
@@ -535,14 +537,17 @@
                     const difficultyFactor = difficulty - 1;
                     
                     // Adjust game parameters based on difficulty (more gradual scaling)
-                    pipeSpeed = 3 + (difficultyFactor * 0.3); // Pipes move faster (but not too fast)
-                    gapHeight = 150 - (difficultyFactor * 5); // Gap gets smaller more gradually
-                    pipeSpawnInterval = 100; // Keep constant spawn interval to ensure visibility of next pipe
+                    pipeSpeed = 3 + (difficultyFactor * 0.25); // Pipes move faster (but not too fast)
+                    gapHeight = 150 - (difficultyFactor * 4); // Gap gets smaller more gradually
+                    
+                    // Increase spawn interval at higher difficulties to ensure more spacing
+                    pipeSpawnInterval = 110 + (difficultyFactor * 5); 
+                    
                     gravity = 0.5 + (difficultyFactor * 0.05); // Gravity increases slightly
                     jumpStrength = -8 - (difficultyFactor * 0.2); // Jump strength increases to compensate
                     
                     // Ensure values stay within reasonable limits
-                    gapHeight = Math.max(100, gapHeight); // Don't make gaps too small
+                    gapHeight = Math.max(110, gapHeight); // Don't make gaps too small
                     
                     console.log("Difficulty increased to:", difficulty);
                 }
