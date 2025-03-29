@@ -40,98 +40,25 @@
             tgApp.ready();
         }
         
-        // Preload audio
+        // Preload audio - simplified version
         function loadAudio() {
-            // Create background music element
-            bgMusic = new Audio();
-            bgMusic.src = 'assets/sounds/background.mp3';
-            bgMusic.loop = true;
-            bgMusic.volume = 0.5;
-            
-            // Create sound effects
-            flapSound = new Audio('assets/sounds/flap.wav');
-            hitSound = new Audio('assets/sounds/hit.wav');
-            scoreSound = new Audio('assets/sounds/score.wav');
-            
-            // Create background music
-            if (!bgMusic.src.includes('background.mp3')) {
-                // Create a dynamic audio file
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const bgBuffer = audioContext.createBuffer(2, audioContext.sampleRate * 30, audioContext.sampleRate);
+            try {
+                // Create sound effects - using existing files
+                bgMusic = new Audio('assets/sounds/flap.wav');  // Reuse existing sound as background
+                bgMusic.loop = true;
+                bgMusic.volume = 0.5;
                 
-                // Simple background melody creation
-                for (let channel = 0; channel < 2; channel++) {
-                    const data = bgBuffer.getChannelData(channel);
-                    const baseFrequency = 220; // A3
-                    
-                    for (let i = 0; i < bgBuffer.length; i++) {
-                        // Create a simple melody pattern that repeats
-                        const time = i / audioContext.sampleRate;
-                        const patternPosition = time % 8;
-                        let note = 0;
-                        
-                        if (patternPosition < 2) note = 0;      // A
-                        else if (patternPosition < 4) note = 3; // C
-                        else if (patternPosition < 6) note = 5; // D
-                        else note = 7;                         // E
-                        
-                        const frequency = baseFrequency * Math.pow(2, note / 12);
-                        const oscillation = Math.sin(2 * Math.PI * frequency * time);
-                        
-                        // Add some variance for interest
-                        const vibrato = Math.sin(2 * Math.PI * 6 * time) * 0.05;
-                        
-                        // Fade in/out at pattern boundaries
-                        const fadeTime = 0.1;
-                        const patternFade = Math.min(patternPosition % 2, 2 - (patternPosition % 2), fadeTime) / fadeTime;
-                        
-                        // Combine elements with volume control
-                        data[i] = oscillation * 0.2 * (1 + vibrato) * patternFade;
-                    }
-                }
-                
-                // Convert to MP3 format (in a real scenario)
-                // For this demo, we'll use the buffer directly
-                const source = audioContext.createBufferSource();
-                source.buffer = bgBuffer;
-                
-                // Connect to a media stream destination
-                const mediaStreamDestination = audioContext.createMediaStreamDestination();
-                source.connect(mediaStreamDestination);
-                
-                // Create a recording from the stream
-                const mediaRecorder = new MediaRecorder(mediaStreamDestination.stream);
-                const audioChunks = [];
-                
-                mediaRecorder.ondataavailable = function(event) {
-                    audioChunks.push(event.data);
-                };
-                
-                mediaRecorder.onstop = function() {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
-                    bgMusic.src = URL.createObjectURL(audioBlob);
-                    bgMusic.play().catch(e => console.error("Error playing initial background music:", e));
-                };
-                
-                // Start recording for 5 seconds
-                mediaRecorder.start();
-                source.start();
-                
-                setTimeout(() => {
-                    mediaRecorder.stop();
-                    source.stop();
-                }, 5000);
+                flapSound = new Audio('assets/sounds/flap.wav');
+                hitSound = new Audio('assets/sounds/hit.wav');
+                scoreSound = new Audio('assets/sounds/score.wav');
+            } catch (e) {
+                console.error("Error loading audio:", e);
+                soundEnabled = false;
             }
         }
         
         // Call the audio loading function
-        try {
-            loadAudio();
-        } catch (e) {
-            console.error("Error loading audio:", e);
-            // Disable sound if there's an error
-            soundEnabled = false;
-        }
+        loadAudio();
 
         // Get canvas and context
         const canvas = document.getElementById('gameCanvas');
