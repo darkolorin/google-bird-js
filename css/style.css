@@ -13,7 +13,8 @@ html, body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: black;
+    background: #0c1221; /* a16z dark blue */
+    touch-action: none;
 }
 
 #game-container {
@@ -23,6 +24,7 @@ html, body {
     width: 100vw;
     height: 100vh;
     display: block;
+    overflow: hidden;
 }
 
 canvas {
