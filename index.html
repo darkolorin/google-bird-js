@@ -86,6 +86,7 @@
         let gapHeight = 150;
         let pipeSpeed = 3;
         let pipeSpawnInterval = 100; // Frames between pipe spawns
+        let minPipeDistance = 200; // Minimum distance between pipes
         const pipeColor = '#33aa33';
         
         let score = 0;
@@ -95,6 +96,7 @@
         
         let gravity = 0.5;
         let jumpStrength = -8;
+        let lastPipeX = -1000; // Initial value to track last pipe position
         
         // Game functions
         function drawBird() {
@@ -107,31 +109,102 @@
                 ctx.rotate(angle);
             }
             
-            // Bird body (yellow circle)
-            ctx.fillStyle = '#ffd000';
+            // Crab body (main circle - red)
+            ctx.fillStyle = '#FF4136'; // Bright red for crab
             ctx.beginPath();
             ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
             ctx.fill();
             
-            // Bird beak (orange triangle)
-            ctx.fillStyle = '#ff9900';
+            // Crab shell pattern (lighter red)
+            ctx.fillStyle = '#FF6B5B';
             ctx.beginPath();
-            ctx.moveTo(bird.radius, 0);
-            ctx.lineTo(bird.radius + 15, -8);
-            ctx.lineTo(bird.radius + 15, 8);
-            ctx.closePath();
+            ctx.arc(0, 0, bird.radius * 0.7, 0, Math.PI * 2);
             ctx.fill();
             
-            // Bird eye
+            // Crab eyes (on stalks)
+            // Left eye stalk
+            ctx.fillStyle = '#FF4136';
+            ctx.beginPath();
+            ctx.rect(-4, -bird.radius - 5, 3, 8);
+            ctx.fill();
+            
+            // Right eye stalk
+            ctx.fillStyle = '#FF4136';
+            ctx.beginPath();
+            ctx.rect(4, -bird.radius - 5, 3, 8);
+            ctx.fill();
+            
+            // Eyes (white with black pupils)
+            // Left eye
             ctx.fillStyle = 'white';
             ctx.beginPath();
-            ctx.arc(5, -5, 5, 0, Math.PI * 2);
+            ctx.arc(-2.5, -bird.radius - 7, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Right eye
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(5.5, -bird.radius - 7, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Pupils
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(-2.5, -bird.radius - 7, 1.5, 0, Math.PI * 2);
             ctx.fill();
             
             ctx.fillStyle = 'black';
             ctx.beginPath();
-            ctx.arc(6, -5, 2, 0, Math.PI * 2);
+            ctx.arc(5.5, -bird.radius - 7, 1.5, 0, Math.PI * 2);
             ctx.fill();
+            
+            // Crab claws
+            // Left claw
+            ctx.fillStyle = '#FF4136';
+            ctx.beginPath();
+            ctx.ellipse(-bird.radius - 5, 0, 8, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Right claw
+            ctx.fillStyle = '#FF4136';
+            ctx.beginPath();
+            ctx.ellipse(bird.radius + 5, 0, 8, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Claw details (pincers)
+            ctx.fillStyle = '#C10000';
+            ctx.beginPath();
+            ctx.arc(-bird.radius - 10, 0, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#C10000';
+            ctx.beginPath();
+            ctx.arc(bird.radius + 10, 0, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Crab legs (3 pairs)
+            const legLength = 10;
+            const legWidth = 1.5;
+            const legSpacing = 5;
+            
+            // Draw 3 pairs of legs
+            for (let i = 0; i < 3; i++) {
+                // Left leg
+                ctx.strokeStyle = '#FF4136';
+                ctx.lineWidth = legWidth;
+                ctx.beginPath();
+                ctx.moveTo(-bird.radius * 0.7, -legSpacing + (i * legSpacing));
+                ctx.lineTo(-bird.radius * 0.7 - legLength, -legSpacing + (i * legSpacing) + legLength);
+                ctx.stroke();
+                
+                // Right leg
+                ctx.strokeStyle = '#FF4136';
+                ctx.lineWidth = legWidth;
+                ctx.beginPath();
+                ctx.moveTo(bird.radius * 0.7, -legSpacing + (i * legSpacing));
+                ctx.lineTo(bird.radius * 0.7 + legLength, -legSpacing + (i * legSpacing) + legLength);
+                ctx.stroke();
+            }
             
             ctx.restore();
         }
@@ -347,32 +420,76 @@
             // Remove pipes that have gone off screen
             pipes = pipes.filter(pipe => pipe.x > -pipeWidth);
             
-            // Add new pipe at regular intervals, adjusted by difficulty
-            if (frames % pipeSpawnInterval === 0) {
-                // Make the gap position more challenging based on difficulty
-                const minGapY = 80 + (difficulty * 5); // Higher minimum as difficulty increases
-                const maxGapY = (canvasHeight - gapHeight - 80) - (difficulty * 5); // Lower maximum
+            // Add new pipe at regular intervals with proper spacing
+            let shouldAddPipe = frames % pipeSpawnInterval === 0;
+            
+            // Always ensure at least one pipe is visible on screen
+            let pipeOnScreen = false;
+            let lastPipeFound = false;
+            
+            pipes.forEach(pipe => {
+                if (pipe.x > -pipeWidth && pipe.x < canvasWidth) {
+                    pipeOnScreen = true;
+                }
                 
-                pipes.push({
+                // Track the position of the rightmost pipe
+                if (pipe.x > lastPipeX) {
+                    lastPipeX = pipe.x;
+                    lastPipeFound = true;
+                }
+            });
+            
+            // Reset lastPipeX if no pipes exist
+            if (!lastPipeFound) {
+                lastPipeX = -1000;
+            }
+            
+            // Calculate minimum gap between pipes based on difficulty and speed
+            const minGapBetweenPipes = minPipeDistance - (difficulty * 10);
+            
+            // Add new pipe if:
+            // 1. It's time to add a pipe based on interval, AND
+            // 2. The last pipe is far enough away from right edge, AND
+            // 3. There are no other pipes in the way
+            const canAddPipe = (canvasWidth - lastPipeX) >= minGapBetweenPipes;
+            
+            // If no pipe is on screen, force spawn a new one
+            if (!pipeOnScreen) {
+                shouldAddPipe = true;
+            }
+            
+            // Only add a pipe if the time is right AND we have enough space
+            if (shouldAddPipe && canAddPipe) {
+                // Make the gap position more balanced
+                const minGapY = 100; // Keep constant minimum
+                const maxGapY = canvasHeight - gapHeight - 100; // Keep constant maximum
+                
+                // Create new pipe
+                const newPipe = {
                     x: canvasWidth,
                     gapY: Math.floor(Math.random() * (maxGapY - minGapY)) + minGapY,
                     scored: false
-                });
+                };
+                
+                pipes.push(newPipe);
+                lastPipeX = newPipe.x;
+                
+                console.log("New pipe created at frame", frames);
             }
         }
         
         // Update game difficulty based on score
         function updateDifficulty() {
             // Keep difficulty constant until score > 10
-            // Then increase difficulty more rapidly
+            // Then increase difficulty gradually
             let newDifficulty;
             
             if (score <= 10) {
                 newDifficulty = 1; // Keep at level 1 for first 10 points
             } else {
-                // After score > 10, increase difficulty more rapidly
-                // Each point increases difficulty by 0.5 levels
-                newDifficulty = Math.min(10, 1 + Math.floor((score - 10) * 0.5));
+                // After score > 10, increase difficulty more gradually
+                // Each 2 points increases difficulty by 1 level
+                newDifficulty = Math.min(10, 1 + Math.floor((score - 10) / 2));
             }
             
             // Only update if difficulty has changed
@@ -387,20 +504,18 @@
                     gravity = 0.5;
                     jumpStrength = -8;
                 } else {
-                    // After 10 points, make it much harder
-                    // Increase difficulty more rapidly
+                    // After 10 points, make it gradually harder
                     const difficultyFactor = difficulty - 1;
                     
-                    // Adjust game parameters based on difficulty (more aggressive scaling)
-                    pipeSpeed = 3 + (difficultyFactor * 0.8); // Pipes move faster
-                    gapHeight = 150 - (difficultyFactor * 8); // Gap gets smaller faster
-                    pipeSpawnInterval = 100 - (difficultyFactor * 7); // Pipes spawn more frequently
-                    gravity = 0.5 + (difficultyFactor * 0.08); // Gravity increases faster
-                    jumpStrength = -8 - (difficultyFactor * 0.3); // Jump strength increases to compensate
+                    // Adjust game parameters based on difficulty (more gradual scaling)
+                    pipeSpeed = 3 + (difficultyFactor * 0.3); // Pipes move faster (but not too fast)
+                    gapHeight = 150 - (difficultyFactor * 5); // Gap gets smaller more gradually
+                    pipeSpawnInterval = 100; // Keep constant spawn interval to ensure visibility of next pipe
+                    gravity = 0.5 + (difficultyFactor * 0.05); // Gravity increases slightly
+                    jumpStrength = -8 - (difficultyFactor * 0.2); // Jump strength increases to compensate
                     
                     // Ensure values stay within reasonable limits
-                    gapHeight = Math.max(70, gapHeight); // Allow even smaller gaps
-                    pipeSpawnInterval = Math.max(35, pipeSpawnInterval); // Allow more frequent spawns
+                    gapHeight = Math.max(100, gapHeight); // Don't make gaps too small
                     
                     console.log("Difficulty increased to:", difficulty);
                 }
