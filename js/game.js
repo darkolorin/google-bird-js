@@ -40,6 +40,8 @@ let gameOverText;
 let restartButton;
 let ground;
 let pipeTimer; // Add variable for the timer event
+let clouds; // Add variable for the cloud group
+let cloudTimer; // Add variable for the cloud timer
 
 // Initialize game
 const game = new Phaser.Game(config);
@@ -52,6 +54,7 @@ function preload() {
     this.load.image('bird', 'assets/images/bird.svg');
     this.load.image('pipe', 'assets/images/pipe.svg');
     this.load.image('ground', 'assets/images/ground.svg');
+    this.load.image('cloud', 'assets/images/cloud.svg'); // Load cloud image
     // We might need a restart button graphic later if we change the restart logic
     // this.load.image('restart', 'assets/images/restart.svg');
 }
@@ -62,6 +65,9 @@ function create() {
 
     // Add background image
     this.add.image(config.width / 2, config.height / 2, 'background').setOrigin(0.5);
+
+    // Add cloud group (behind pipes and bird)
+    clouds = this.add.group();
 
     // Add bird physics sprite (invisible physics body remains similar)
     bird = this.physics.add.sprite(80, config.height / 2, 'bird');
@@ -129,6 +135,16 @@ function create() {
     });
     pipeTimer.paused = true; // Start paused until game starts
 
+    // Set up cloud generation timer (runs constantly)
+    cloudTimer = this.time.addEvent({
+        delay: 5000, // Spawn cloud every 5 seconds (adjust as needed)
+        callback: createCloud,
+        callbackScope: this,
+        loop: true
+    });
+    // Initial cloud spawn
+    createCloud.call(this);
+
     console.log("Game created!");
 }
 
@@ -147,6 +163,15 @@ function update(time) {
             }
         });
     }
+
+    // Move clouds
+    clouds.getChildren().forEach(cloud => {
+        cloud.x -= cloud.getData('speed'); // Move cloud left based on its speed
+        // Remove clouds when off screen
+        if (cloud.x < -cloud.width) {
+            cloud.destroy();
+        }
+    });
 
     if (gameOver) return;
     if (!gameStarted) return;
@@ -316,4 +341,19 @@ function restartGame() {
 
     // Re-enable input listener if it was disabled
     // this.input.once('pointerdown', flapBird, this); // If only flapping starts the game
+}
+
+// Create a single cloud
+function createCloud() {
+    const cloudY = Phaser.Math.Between(50, config.height / 2); // Random height in top half
+    const cloudScale = Phaser.Math.FloatBetween(0.5, 1.0); // Random size
+    const cloudSpeed = Phaser.Math.FloatBetween(0.5, 1.5); // Random speed
+    const cloudAlpha = Phaser.Math.FloatBetween(0.7, 1.0); // Random transparency
+
+    const cloud = clouds.create(config.width + 100, cloudY, 'cloud');
+    cloud.setScale(cloudScale);
+    cloud.setAlpha(cloudAlpha);
+    cloud.setData('speed', cloudSpeed);
+    // Ensure clouds are behind bird/pipes if needed (adjust depth)
+    // cloud.setDepth(-1); // Uncomment if clouds appear in front
 }
