@@ -63,10 +63,12 @@ function preload() {
 function create() {
     console.log("Creating game");
 
-    // Add background image
-    this.add.image(config.width / 2, config.height / 2, 'background').setOrigin(0.5);
+    // Add background image & set depth
+    this.add.image(config.width / 2, config.height / 2, 'background')
+        .setOrigin(0.5)
+        .setDepth(-10); // Send background far back
 
-    // Add cloud group (behind pipes and bird)
+    // Add cloud group (behind pipes and bird, but in front of background)
     clouds = this.add.group();
 
     // Add bird physics sprite (invisible physics body remains similar)
@@ -150,6 +152,9 @@ function create() {
 
 // Game loop
 function update(time) {
+    // Add a temporary log to ensure update isn't somehow calling createPipes
+    // console.log(`Update loop - gameStarted: ${gameStarted}, gameOver: ${gameOver}`);
+
     // Rotate bird sprite based on velocity
     if (gameStarted && !gameOver) {
         // Existing rotation logic should work directly on the bird sprite
@@ -233,6 +238,9 @@ function startGame() {
 
 // Create pipes using images
 function createPipes(scene) {
+    // Log when pipes are created
+    console.log(`Creating pipes at time: ${scene.time.now}`);
+
     const pipeHeight = 512; // Assuming pipe.svg is 512px tall, adjust if needed
     const pipeWidth = 80;   // Assuming pipe.svg is 80px wide, adjust if needed
 
@@ -354,6 +362,5 @@ function createCloud() {
     cloud.setScale(cloudScale);
     cloud.setAlpha(cloudAlpha);
     cloud.setData('speed', cloudSpeed);
-    // Ensure clouds are behind bird/pipes if needed (adjust depth)
-    // cloud.setDepth(-1); // Uncomment if clouds appear in front
+    cloud.setDepth(-5); // Ensure clouds are behind bird/pipes (default depth 0) but in front of background (-10)
 }
