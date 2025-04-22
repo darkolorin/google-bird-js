@@ -43,51 +43,53 @@ let ground;
 // Initialize game
 const game = new Phaser.Game(config);
 
-// Asset loading - not needed as we draw everything
+// Asset loading
 function preload() {
     console.log("Preload started");
+    // Load image assets
+    this.load.image('background', 'assets/images/background.svg');
+    this.load.image('bird', 'assets/images/bird.svg');
+    this.load.image('pipe', 'assets/images/pipe.svg');
+    this.load.image('ground', 'assets/images/ground.svg');
+    // We might need a restart button graphic later if we change the restart logic
+    // this.load.image('restart', 'assets/images/restart.svg');
 }
 
 // Set up game objects
 function create() {
     console.log("Creating game");
-    
-    // Add background color - already set in config
-    
-    // Add bird - simple yellow circle with orange beak
-    bird = this.physics.add.sprite(80, config.height / 2);
-    bird.setCircle(15); // circular hitbox
-    bird.setVisible(false); // hide actual sprite
-    
-    // Create visible bird graphics
-    this.birdGraphics = this.add.graphics();
-    this.birdGraphics.fillStyle(0xFFD000, 1); // Yellow
-    this.birdGraphics.fillCircle(0, 0, 15);
-    this.birdGraphics.fillStyle(0xFF9900, 1); // Orange
-    this.birdGraphics.fillTriangle(15, 0, 30, -8, 30, 8);
-    this.birdGraphics.x = bird.x;
-    this.birdGraphics.y = bird.y;
-    
-    // Add ground - green rectangle
-    const groundHeight = 80;
+
+    // Add background image
+    this.add.image(config.width / 2, config.height / 2, 'background').setOrigin(0.5);
+
+    // Add bird physics sprite (invisible physics body remains similar)
+    bird = this.physics.add.sprite(80, config.height / 2, 'bird');
+    bird.setCircle(15); // Adjust hitbox if needed based on bird.svg size/shape
+    bird.setCollideWorldBounds(false); // Allow bird to go off-screen top/bottom initially
+    bird.body.allowGravity = false; // Gravity disabled until game starts
+    bird.setVisible(true); // Make the sprite visible now
+    bird.setScale(0.08); // Scale the bird SVG down if it's too large
+
+    // Add ground physics body (static)
+    const groundHeight = 80; // Adjust based on ground.svg height if necessary
     ground = this.physics.add.staticGroup();
-    const groundObj = ground.create(config.width / 2, config.height - groundHeight / 2);
-    groundObj.setVisible(false);
-    groundObj.displayWidth = config.width;
-    groundObj.displayHeight = groundHeight;
-    groundObj.refreshBody();
-    
-    // Draw visible ground
-    this.add.rectangle(config.width / 2, config.height - groundHeight / 2, 
-                       config.width, groundHeight, 0x33aa33);
-    
-    // Pipes group
-    pipes = this.physics.add.group();
-    
+
+    // Create a tiled sprite for seamless scrolling ground
+    const groundTile = this.add.tileSprite(config.width / 2, config.height - groundHeight / 2, config.width, groundHeight, 'ground');
+    ground.add(groundTile); // Add the visual part to the physics group
+    groundTile.body.allowGravity = false; // Ensure it doesn't fall
+    groundTile.body.immovable = true; // Ensure it doesn't move upon collision
+
+    // Pipes group (still physics-based)
+    pipes = this.physics.add.group({
+        allowGravity: false,
+        immovable: true
+    });
+
     // Set up collisions
     this.physics.add.collider(bird, ground, hitObstacle, null, this);
     this.physics.add.collider(bird, pipes, hitObstacle, null, this);
-    
+
     // Set up text elements
     scoreText = this.add.text(config.width / 2, 50, '0', 
                              { fontSize: '32px', fill: '#fff' }).setOrigin(0.5);
@@ -113,52 +115,58 @@ function create() {
     );
     playSymbol.visible = false;
     restartButton.playSymbol = playSymbol;
-    
+
     // Set up input
     this.input.on('pointerdown', flapBird, this);
-    
+
     console.log("Game created!");
 }
 
 // Game loop
 function update(time) {
-    // Update bird graphics position
-    this.birdGraphics.x = bird.x;
-    this.birdGraphics.y = bird.y;
-    
-    // Rotate bird based on velocity when game is active
-    if (gameStarted && !gameOver && bird.body.velocity.y !== 0) {
-        const angle = Phaser.Math.Clamp(bird.body.velocity.y / 600, -Math.PI/6, Math.PI/4);
-        this.birdGraphics.rotation = angle;
+    // Rotate bird sprite based on velocity
+    if (gameStarted && !gameOver) {
+        // Existing rotation logic should work directly on the bird sprite
+        const angle = Phaser.Math.Clamp(bird.body.velocity.y * 0.1, -30, 90); // Adjust multiplier/limits as needed
+        bird.angle = angle;
+
+        // Scroll the ground texture
+        ground.getChildren().forEach(g => {
+            if (g instanceof Phaser.GameObjects.TileSprite) {
+                g.tilePositionX += 3; // Adjust speed as needed
+            }
+        });
     }
-    
+
     if (gameOver) return;
     if (!gameStarted) return;
-    
+
     // Generate pipes
     if (time > nextPipes) {
         createPipes(this);
-        nextPipes = time + 1500;
+        nextPipes = time + 1500; // Adjust timing as needed
     }
-    
+
     // Check for scoring and clean up pipes
     pipes.getChildren().forEach(pipe => {
-        // Update pipe graphics position if it exists
-        if (pipe.graphics) {
-            pipe.graphics.x = pipe.x;
-            pipe.graphics.y = pipe.y;
+        // Score when passing pipe (use pipe bounds)
+        // Score when the pipe's right edge passes the bird's center
+        if (pipe.getBounds().right < bird.x && !pipe.scored) {
+             // Check only one pipe of the pair (e.g., the top one or one with a specific property)
+            if (pipe.getData('isTopPipe')) { // Need to set this data in createPipes
+               score++;
+               scoreText.setText(score.toString());
+               // Mark both pipes of the pair as scored to avoid double scoring
+               pipes.getChildren().forEach(p => {
+                    if (p.getData('pairId') === pipe.getData('pairId')) {
+                         p.scored = true;
+                     }
+               });
+            }
         }
-        
-        // Score when passing pipe
-        if (pipe.x + 30 < bird.x && !pipe.scored && pipe.y < config.height / 2) {
-            pipe.scored = true;
-            score++;
-            scoreText.setText(score.toString());
-        }
-        
+
         // Remove pipes when off screen
-        if (pipe.x < -50) {
-            if (pipe.graphics) pipe.graphics.destroy();
+        if (pipe.x < -pipe.width) { // Use pipe width for removal check
             pipe.destroy();
         }
     });
@@ -182,46 +190,44 @@ function startGame() {
     bird.body.allowGravity = true;
     tapToStartText.visible = false;
     
+    // Make bird visible and interactable
+    bird.setVisible(true);
+
     // Initial jump
     bird.body.velocity.y = -350;
 }
 
-// Create pipes
+// Create pipes using images
 function createPipes(scene) {
-    // Calculate random position for the gap
-    const pipeY = Phaser.Math.Between(150, config.height - gap - 150);
-    
-    // Create top pipe
-    const topPipe = pipes.create(config.width + 50, pipeY - 150);
-    topPipe.body.allowGravity = false;
-    topPipe.scored = false;
-    topPipe.setSize(50, 300);
-    topPipe.setVisible(false);
+    const pipeHeight = 512; // Assuming pipe.svg is 512px tall, adjust if needed
+    const pipeWidth = 80;   // Assuming pipe.svg is 80px wide, adjust if needed
+
+    // Calculate random position for the gap center
+    const gapCenterY = Phaser.Math.Between(150, config.height - 150 - gap); // Ensure gap is within bounds
+
+    const topPipeY = gapCenterY - gap / 2 - pipeHeight / 2;
+    const bottomPipeY = gapCenterY + gap / 2 + pipeHeight / 2;
+
+    const pairId = Phaser.Math.RND.uuid(); // Unique ID for this pair
+
+    // Create top pipe sprite
+    const topPipe = pipes.create(config.width + pipeWidth / 2, topPipeY, 'pipe');
+    topPipe.setOrigin(0.5, 0.5); // Origin likely center for standard pipe image
+    topPipe.flipY = true; // Flip the top pipe image vertically
     topPipe.body.velocity.x = -200;
-    
-    // Create visible pipe
-    const topPipeGraphics = scene.add.graphics();
-    topPipeGraphics.fillStyle(0x00aa00, 1); // Green
-    topPipeGraphics.fillRect(-25, -150, 50, 300);
-    topPipeGraphics.x = topPipe.x;
-    topPipeGraphics.y = topPipe.y;
-    topPipe.graphics = topPipeGraphics;
-    
-    // Create bottom pipe
-    const bottomPipe = pipes.create(config.width + 50, pipeY + gap + 150);
-    bottomPipe.body.allowGravity = false;
-    bottomPipe.scored = false;
-    bottomPipe.setSize(50, 300);
-    bottomPipe.setVisible(false);
+    topPipe.scored = false;
+    topPipe.setData('isTopPipe', true); // Mark as top pipe for scoring
+    topPipe.setData('pairId', pairId);  // Assign pair ID
+    topPipe.body.setSize(pipeWidth * 0.8, pipeHeight); // Adjust physics body size if needed
+
+    // Create bottom pipe sprite
+    const bottomPipe = pipes.create(config.width + pipeWidth / 2, bottomPipeY, 'pipe');
+    bottomPipe.setOrigin(0.5, 0.5);
     bottomPipe.body.velocity.x = -200;
-    
-    // Create visible pipe
-    const bottomPipeGraphics = scene.add.graphics();
-    bottomPipeGraphics.fillStyle(0x00aa00, 1); // Green
-    bottomPipeGraphics.fillRect(-25, -150, 50, 300);
-    bottomPipeGraphics.x = bottomPipe.x;
-    bottomPipeGraphics.y = bottomPipe.y;
-    bottomPipe.graphics = bottomPipeGraphics;
+    bottomPipe.scored = false;
+    bottomPipe.setData('isTopPipe', false); // Not the top pipe
+    bottomPipe.setData('pairId', pairId);   // Assign pair ID
+    bottomPipe.body.setSize(pipeWidth * 0.8, pipeHeight); // Adjust physics body size if needed
 }
 
 // Handle collision
@@ -233,6 +239,7 @@ function hitObstacle() {
     // Stop bird and pipes
     bird.body.velocity.y = 0;
     bird.body.allowGravity = false;
+    bird.angle = 0; // Optional: Reset bird angle on game over
     
     pipes.getChildren().forEach(pipe => {
         pipe.body.velocity.x = 0;
@@ -255,7 +262,37 @@ function hitObstacle() {
     }
 }
 
-// Restart the game
+// Restart the game - smoother version
 function restartGame() {
-    location.reload();
+    // Reset variables
+    gameOver = false;
+    gameStarted = false;
+    score = 0;
+    nextPipes = 0;
+
+    // Reset UI elements
+    scoreText.setText('0');
+    gameOverText.visible = false;
+    restartButton.visible = false;
+    restartButton.playSymbol.visible = false;
+    tapToStartText.visible = true;
+
+    // Reset bird position and physics
+    bird.setPosition(80, config.height / 2);
+    bird.setVelocity(0, 0);
+    bird.body.allowGravity = false;
+    bird.angle = 0;
+
+    // Clear existing pipes
+    pipes.clear(true, true); // Destroy children and remove them from the scene
+
+    // Optional: Reset ground scroll position if needed
+    ground.getChildren().forEach(g => {
+        if (g instanceof Phaser.GameObjects.TileSprite) {
+            g.tilePositionX = 0;
+        }
+    });
+
+    // Re-enable input listener if it was disabled
+    // this.input.once('pointerdown', flapBird, this); // If only flapping starts the game
 }
