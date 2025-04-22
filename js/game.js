@@ -39,6 +39,7 @@ let tapToStartText;
 let gameOverText;
 let restartButton;
 let ground;
+let pipeTimer; // Add variable for the timer event
 
 // Initialize game
 const game = new Phaser.Game(config);
@@ -119,6 +120,15 @@ function create() {
     // Set up input
     this.input.on('pointerdown', flapBird, this);
 
+    // Set up pipe generation timer
+    pipeTimer = this.time.addEvent({
+        delay: 1500, // milliseconds
+        callback: createPipes, // Function to call
+        callbackScope: this,   // Context for the callback
+        loop: true             // Repeat indefinitely
+    });
+    pipeTimer.paused = true; // Start paused until game starts
+
     console.log("Game created!");
 }
 
@@ -140,12 +150,6 @@ function update(time) {
 
     if (gameOver) return;
     if (!gameStarted) return;
-
-    // Generate pipes
-    if (time > nextPipes) {
-        createPipes(this);
-        nextPipes = time + 1500; // Adjust timing as needed
-    }
 
     // Check for scoring and clean up pipes
     pipes.getChildren().forEach(pipe => {
@@ -192,6 +196,11 @@ function startGame() {
     
     // Make bird visible and interactable
     bird.setVisible(true);
+
+    // Resume pipe timer
+    if (pipeTimer) {
+        pipeTimer.paused = false;
+    }
 
     // Initial jump
     bird.body.velocity.y = -350;
@@ -245,6 +254,11 @@ function hitObstacle() {
         pipe.body.velocity.x = 0;
     });
     
+    // Pause pipe timer
+    if (pipeTimer) {
+        pipeTimer.paused = true;
+    }
+    
     // Show game over text and restart button
     gameOverText.visible = true;
     restartButton.visible = true;
@@ -285,6 +299,13 @@ function restartGame() {
 
     // Clear existing pipes
     pipes.clear(true, true); // Destroy children and remove them from the scene
+
+    // Resume pipe timer (it starts paused, startGame will unpause it)
+    if (pipeTimer) {
+        pipeTimer.paused = true; // Ensure it's paused initially
+        // Optional: Reset elapsed time if pipes should always appear after 1.5s from restart tap
+        // pipeTimer.elapsed = 0;
+    }
 
     // Optional: Reset ground scroll position if needed
     ground.getChildren().forEach(g => {
