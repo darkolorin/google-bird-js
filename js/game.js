@@ -42,6 +42,7 @@ let ground;
 let pipeTimer; // Add variable for the timer event
 let clouds; // Add variable for the cloud group
 let cloudTimer; // Add variable for the cloud timer
+let lastLogTime = 0; // Variable to limit frequency of timer logging
 
 // Initialize game
 const game = new Phaser.Game(config);
@@ -146,14 +147,26 @@ function create() {
     });
     // Initial cloud spawn
     createCloud.call(this);
+    console.log("Initial cloud created call");
 
     console.log("Game created!");
 }
 
 // Game loop
 function update(time) {
-    // Add a temporary log to ensure update isn't somehow calling createPipes
-    // console.log(`Update loop - gameStarted: ${gameStarted}, gameOver: ${gameOver}`);
+    // Log timer status occasionally
+    if (time > lastLogTime + 2000) { // Log every 2 seconds
+        if (pipeTimer) {
+            console.log(`Pipe Timer Status - Paused: ${pipeTimer.paused}, Delay: ${pipeTimer.delay}, Elapsed: ${pipeTimer.elapsed.toFixed(0)}`);
+        }
+        if (cloudTimer) {
+             console.log(`Cloud Timer Status - Delay: ${cloudTimer.delay}, Elapsed: ${cloudTimer.elapsed.toFixed(0)}`);
+        }
+        if (clouds) {
+            console.log(`Cloud count: ${clouds.getChildren().length}`);
+        }
+        lastLogTime = time;
+    }
 
     // Rotate bird sprite based on velocity
     if (gameStarted && !gameOver) {
@@ -172,8 +185,10 @@ function update(time) {
     // Move clouds
     clouds.getChildren().forEach(cloud => {
         cloud.x -= cloud.getData('speed'); // Move cloud left based on its speed
+        // console.log(`Cloud at X: ${cloud.x.toFixed(0)}, Width: ${cloud.width.toFixed(0)}`); // Uncomment for verbose cloud position logging
         // Remove clouds when off screen
         if (cloud.x < -cloud.width) {
+            console.log(`Destroying cloud at X: ${cloud.x.toFixed(0)}`);
             cloud.destroy();
         }
     });
@@ -220,6 +235,7 @@ function flapBird() {
 
 // Start game
 function startGame() {
+    console.log("Starting game"); // Log game start
     gameStarted = true;
     bird.body.allowGravity = true;
     tapToStartText.visible = false;
@@ -229,6 +245,7 @@ function startGame() {
 
     // Resume pipe timer
     if (pipeTimer) {
+        console.log("Resuming pipe timer"); // Log timer resume
         pipeTimer.paused = false;
     }
 
@@ -237,45 +254,56 @@ function startGame() {
 }
 
 // Create pipes using images
-function createPipes(scene) {
+function createPipes() {
+    const scene = this; // 'this' is the scene when called by the timer
+
+    // Prevent accidental rapid-fire creation by enforcing minimum spacing (optional safety)
+    if (scene.lastPipeX && scene.lastPipeX > config.width * 0.8) {
+        // If the last pipe pair hasn't moved ~20% of screen width, skip this creation
+        return;
+    }
+
     // Log when pipes are created
     console.log(`Creating pipes at time: ${scene.time.now}`);
 
-    const pipeHeight = 512; // Assuming pipe.svg is 512px tall, adjust if needed
-    const pipeWidth = 80;   // Assuming pipe.svg is 80px wide, adjust if needed
+    const pipeHeight = 512; // Adjust if needed to match asset
+    const pipeWidth = 80;
 
     // Calculate random position for the gap center
-    const gapCenterY = Phaser.Math.Between(150, config.height - 150 - gap); // Ensure gap is within bounds
+    const gapCenterY = Phaser.Math.Between(150, config.height - 150 - gap);
 
     const topPipeY = gapCenterY - gap / 2 - pipeHeight / 2;
     const bottomPipeY = gapCenterY + gap / 2 + pipeHeight / 2;
 
-    const pairId = Phaser.Math.RND.uuid(); // Unique ID for this pair
+    const pairId = Phaser.Math.RND.uuid();
 
-    // Create top pipe sprite
+    // Create top pipe
     const topPipe = pipes.create(config.width + pipeWidth / 2, topPipeY, 'pipe');
-    topPipe.setOrigin(0.5, 0.5); // Origin likely center for standard pipe image
-    topPipe.flipY = true; // Flip the top pipe image vertically
+    topPipe.setOrigin(0.5);
+    topPipe.flipY = true;
     topPipe.body.velocity.x = -200;
     topPipe.scored = false;
-    topPipe.setData('isTopPipe', true); // Mark as top pipe for scoring
-    topPipe.setData('pairId', pairId);  // Assign pair ID
-    topPipe.body.setSize(pipeWidth * 0.8, pipeHeight); // Adjust physics body size if needed
+    topPipe.setData('isTopPipe', true);
+    topPipe.setData('pairId', pairId);
+    topPipe.body.setSize(pipeWidth * 0.8, pipeHeight);
 
-    // Create bottom pipe sprite
+    // Create bottom pipe
     const bottomPipe = pipes.create(config.width + pipeWidth / 2, bottomPipeY, 'pipe');
-    bottomPipe.setOrigin(0.5, 0.5);
+    bottomPipe.setOrigin(0.5);
     bottomPipe.body.velocity.x = -200;
     bottomPipe.scored = false;
-    bottomPipe.setData('isTopPipe', false); // Not the top pipe
-    bottomPipe.setData('pairId', pairId);   // Assign pair ID
-    bottomPipe.body.setSize(pipeWidth * 0.8, pipeHeight); // Adjust physics body size if needed
+    bottomPipe.setData('isTopPipe', false);
+    bottomPipe.setData('pairId', pairId);
+    bottomPipe.body.setSize(pipeWidth * 0.8, pipeHeight);
+
+    // Track last pipe x-position for spacing safety check
+    scene.lastPipeX = topPipe.x;
 }
 
 // Handle collision
 function hitObstacle() {
     if (gameOver) return;
-    
+    console.log("Hit obstacle - Game Over"); // Log game over
     gameOver = true;
     
     // Stop bird and pipes
@@ -289,6 +317,7 @@ function hitObstacle() {
     
     // Pause pipe timer
     if (pipeTimer) {
+        console.log("Pausing pipe timer"); // Log timer pause
         pipeTimer.paused = true;
     }
     
@@ -311,6 +340,7 @@ function hitObstacle() {
 
 // Restart the game - smoother version
 function restartGame() {
+    console.log("Restarting game"); // Log restart
     // Reset variables
     gameOver = false;
     gameStarted = false;
@@ -335,9 +365,9 @@ function restartGame() {
 
     // Resume pipe timer (it starts paused, startGame will unpause it)
     if (pipeTimer) {
+        console.log("Resetting pipe timer to paused state"); // Log timer reset
         pipeTimer.paused = true; // Ensure it's paused initially
-        // Optional: Reset elapsed time if pipes should always appear after 1.5s from restart tap
-        // pipeTimer.elapsed = 0;
+        pipeTimer.elapsed = 0; // Reset elapsed time
     }
 
     // Optional: Reset ground scroll position if needed
@@ -353,6 +383,7 @@ function restartGame() {
 
 // Create a single cloud
 function createCloud() {
+    console.log(`Creating cloud at time: ${this.time.now}`); // Log cloud creation time
     const cloudY = Phaser.Math.Between(50, config.height / 2); // Random height in top half
     const cloudScale = Phaser.Math.FloatBetween(0.5, 1.0); // Random size
     const cloudSpeed = Phaser.Math.FloatBetween(0.5, 1.5); // Random speed
@@ -363,4 +394,5 @@ function createCloud() {
     cloud.setAlpha(cloudAlpha);
     cloud.setData('speed', cloudSpeed);
     cloud.setDepth(-5); // Ensure clouds are behind bird/pipes (default depth 0) but in front of background (-10)
+    console.log(`Cloud created: Y=${cloudY}, Scale=${cloudScale.toFixed(1)}, Speed=${cloudSpeed.toFixed(1)}, Alpha=${cloudAlpha.toFixed(1)}`);
 }
