@@ -234,9 +234,9 @@ function drawApple() {
 }
 
 function drawPipes() {
-    if (!images.pipe || !images.pipe.complete) { // Fallback to old drawing if asset not loaded
+    if (!images.pipe || !images.pipe.complete) { 
         pipes.forEach(pipe => {
-            ctx.fillStyle = '#33aa33'; // Original pipeColor
+            ctx.fillStyle = '#33aa33'; 
             if (score > 10) {
                 const difficultyFactor = difficulty - 1;
                 const difficultyColor = Math.max(0, 170 - difficultyFactor * 20);
@@ -253,32 +253,33 @@ function drawPipes() {
 
     pipes.forEach(pipe => {
         const pipeImg = images.pipe;
-        const P_WIDTH = pipeWidth; // Use the new global pipeWidth for consistency
-        const P_HEIGHT = pipeImg.height; // Use actual image height for scaling, or a fixed value
+        // Draw pipes to fill the screen height appropriately
 
-        // Top pipe (flipped)
+        // Top pipe (flipped and stretched)
         ctx.save();
-        ctx.translate(pipe.x + P_WIDTH / 2, pipe.gapY + P_HEIGHT / 2); // Translate to center of where top of flipped pipe should be
-        ctx.scale(1, -1); // Flip vertically
-        // Adjust Y to draw from its new "bottom" after flip, which is its original top
-        ctx.drawImage(pipeImg, -P_WIDTH / 2, -P_HEIGHT / 2, P_WIDTH, P_HEIGHT);
+        // Translate to the top-left of where the pipe should start
+        ctx.translate(pipe.x, pipe.gapY);
+        ctx.scale(1, -1); // Flip vertically for the top pipe
+        // Draw the image from the new (0,0), stretching its height to fill up to pipe.gapY
+        ctx.drawImage(pipeImg, 0, 0, pipeWidth, pipe.gapY);
         ctx.restore();
 
-        // Bottom pipe
-        ctx.drawImage(pipeImg, pipe.x, pipe.gapY + gapHeight, P_WIDTH, P_HEIGHT);
+        // Bottom pipe (stretched)
+        // Draw from the start of the gap downwards, stretching to fill the remaining height above ground
+        const bottomPipeVisualHeight = canvasHeight - groundHeight - (pipe.gapY + gapHeight);
+        ctx.drawImage(pipeImg, pipe.x, pipe.gapY + gapHeight, pipeWidth, bottomPipeVisualHeight);
 
-        // Optional: Draw brand logos (can be kept if desired)
         if (score > 10) {
             ctx.fillStyle = 'white';
-            ctx.font = 'bold 16px Arial'; // Consider scaling font with DPR if needed
+            ctx.font = 'bold 16px Arial'; 
             ctx.textAlign = 'center';
             const brand = score > 25 ? 'Apple' : 'a16z';
             if (pipe.gapY > 50) {
-                ctx.fillText(brand, pipe.x + P_WIDTH/2, pipe.gapY - 20);
+                ctx.fillText(brand, pipe.x + pipeWidth/2, pipe.gapY - 20);
             }
             const bottomTextY = pipe.gapY + gapHeight + 40;
             if (bottomTextY < canvasHeight - 40) {
-                ctx.fillText(brand, pipe.x + P_WIDTH/2, bottomTextY);
+                ctx.fillText(brand, pipe.x + pipeWidth/2, bottomTextY);
             }
         }
     });
@@ -651,20 +652,34 @@ canvas.addEventListener('touchstart', handleTap, { passive: false }); // passive
 
 // Game loop
 function gameLoop() {
-    // Clear the logical canvas area. Context is already scaled by DPR via resizeCanvas.
     ctx.clearRect(0, 0, canvasWidth, canvasHeight); 
 
-    // Drawing functions now operate in logical coordinates.
-    // The DPR scaling is handled globally by the transform set in resizeCanvas.
-    drawBackground();
-    drawPipes();
-    drawGround();
-    drawBird();
-    drawScore();
-    drawGameStartText();
-    drawGameOverText();
+    if (!gameOver) {
+        drawBackground();
+        drawPipes();
+        drawGround();
+        drawBird();
+        drawScore();
+        drawGameStartText(); // Only draws if game not started
+    } else {
+        // If game is over, optionally draw the static game state (or a snapshot)
+        // For simplicity here, we can just draw background and ground for context
+        // or dim the whole game screen and draw game over text on top.
+        
+        // Option 1: Draw a semi-transparent overlay, then game over text
+        // ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        // ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        // drawGameOverText();
+
+        // Option 2: Keep background and ground, then Game Over text (as it was, but now exclusive)
+        drawBackground(); // Keep background visible
+        // drawPipes(); // Optionally draw the pipes that caused game over
+        drawGround();   // Keep ground visible
+        // drawBird(); // Optionally draw the bird in its final position
+        drawGameOverText();
+        drawScore(); // Re-draw score in game over state as it might be part of drawGameOverText or separate
+    }
     
-    // Game logic updates (no changes needed here for rendering)
     if (gameStarted && !gameOver) {
         updateBird();
         updatePipes();
