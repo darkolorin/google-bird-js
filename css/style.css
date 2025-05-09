@@ -4,11 +4,20 @@
     box-sizing: border-box;
 }
 
-html, body {
+html {
     width: 100%;
     height: 100%;
+}
+
+body {
+    width: 100%; /* Ensured from html, body rule */
+    height: 100vh; /* More specific than height: 100% */
+    display: flex;
+    justify-content: center;
+    align-items: center;
     overflow: hidden;
     background-color: #71c5cf;
+    touch-action: none; /* Added from inline style */
 }
 
 #game-container {
@@ -24,4 +33,6 @@ html, body {
 
 canvas {
     display: block;
+    /* background-color: #71c5cf; /* Redundant as body has the same bg and canvas is centered */
+    touch-action: none; /* Added from inline style */
 }
