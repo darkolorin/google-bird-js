@@ -587,11 +587,11 @@ function restartGame() {
         x: 80,
         y: canvasHeight / 2,
         velocity: 0,
-        radius: currentCharacter.radius, 
+        radius: currentCharacter.radius,
         speedVariation: 0,
         type: currentCharacter.type,
-        width: bird.type === 'bird' ? 40 : currentCharacter.radius * 2, 
-        height: bird.type === 'bird' ? 30 : currentCharacter.radius * 2
+        width: currentCharacter.type === 'bird' ? 40 : currentCharacter.radius * 2,
+        height: currentCharacter.type === 'bird' ? 30 : currentCharacter.radius * 2
     };
 
     // Gravity and jumpStrength are reset by updateDifficulty calling for difficulty 1
