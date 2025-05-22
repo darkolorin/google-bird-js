@@ -9,6 +9,29 @@ if (tgApp) {
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// Sound assets
+const sounds = {
+    flap: new Audio('assets/sounds/flap.wav'),
+    score: new Audio('assets/sounds/score.wav'),
+    hit: new Audio('assets/sounds/hit.wav')
+};
+
+// Initialize sounds
+Object.values(sounds).forEach(sound => {
+    sound.volume = 0.3;
+    sound.preload = 'auto';
+});
+
+// Helper function to play sound
+function playSound(soundName) {
+    if (sounds[soundName]) {
+        sounds[soundName].currentTime = 0;
+        sounds[soundName].play().catch(e => {
+            // Ignore errors, some browsers block autoplay
+        });
+    }
+}
+
 // Asset paths
 const assetPaths = {
     bird: 'assets/images/bird.svg',
@@ -139,7 +162,7 @@ let minPipeDistance = 280;
 let score = 0;
 let gameOver = false;
 let gameStarted = false;
-let difficulty = 0;
+let difficulty = 1; // Start at difficulty 1, not 0
 let frames = 0;
 
 let gravity = currentCharacter.gravity;
@@ -335,7 +358,7 @@ function drawScore() {
     
     ctx.font = `${fontWeight}${fontSize}px Arial`; // Logical font size
 
-    if (score > 15 && score > 10) { // Pulse effect for scores > 15 (previously score > 15 only)
+    if (score > 15) {
         const pulseAmount = Math.sin(frames / 10) * 0.05 + 1; 
         ctx.save();
         ctx.translate(canvasWidth / 2, 50); // Logical position
@@ -463,13 +486,15 @@ function updatePipes() {
         if (!pipe.scored && pipe.x + pipeWidth < bird.x - (bird.type === 'bird' ? bird.width/2 : bird.radius)) {
             pipe.scored = true;
             score++;
+            playSound('score'); // Play score sound
         }
 
-        // Collision detection
-        const birdTop = bird.y - (bird.type === 'bird' ? bird.height / 2 : bird.radius);
-        const birdBottom = bird.y + (bird.type === 'bird' ? bird.height / 2 : bird.radius);
-        const birdLeft = bird.x - (bird.type === 'bird' ? bird.width / 2 : bird.radius);
-        const birdRight = bird.x + (bird.type === 'bird' ? bird.width / 2 : bird.radius);
+        // Collision detection with buffer for better gameplay
+        const collisionBuffer = 2; // Small buffer to make collisions feel more fair
+        const birdTop = bird.y - (bird.type === 'bird' ? bird.height / 2 : bird.radius) + collisionBuffer;
+        const birdBottom = bird.y + (bird.type === 'bird' ? bird.height / 2 : bird.radius) - collisionBuffer;
+        const birdLeft = bird.x - (bird.type === 'bird' ? bird.width / 2 : bird.radius) + collisionBuffer;
+        const birdRight = bird.x + (bird.type === 'bird' ? bird.width / 2 : bird.radius) - collisionBuffer;
 
         const pipeRight = pipe.x + pipeWidth;
         const pipeTopY = pipe.gapY; // Top of the gap is the bottom of the top pipe
@@ -477,7 +502,6 @@ function updatePipes() {
 
         if (birdRight > pipe.x && birdLeft < pipeRight) { // Horizontal overlap
             if (birdTop < pipeTopY || birdBottom > pipeBottomY) { // Vertical collision
-                 // More precise check for image-based bird if needed, for now keep it simple
                 endGame();
             }
         }
@@ -510,19 +534,22 @@ function updatePipes() {
     }
 
     if (shouldAddPipe && canAddPipe) {
-        const minGapY = 80; // Min distance from top/bottom for gap start
-        const maxGapYPossible = canvasHeight - gapHeight - minGapY;
+        const minGapY = 80; // Min distance from top for gap start
+        const maxGapYPossible = canvasHeight - groundHeight - gapHeight - 80; // Account for ground height and bottom margin
         let gapY;
 
-        const centerY = (minGapY + maxGapYPossible) / 2;
+        // Generate gap position with better distribution
         const range = maxGapYPossible - minGapY;
         
+        // Use multiple samples for smoother distribution
         const numSamples = 3;
         let totalY = 0;
         for (let i = 0; i < numSamples; i++) {
             totalY += Math.random() * range + minGapY;
         }
         gapY = Math.floor(totalY / numSamples);
+        
+        // Ensure gap is within valid bounds
         gapY = Math.max(minGapY, Math.min(maxGapYPossible, gapY));
 
         pipes.push({ x: canvasWidth, gapY: gapY, scored: false });
@@ -566,6 +593,7 @@ function updateDifficulty() {
 
 function endGame() {
     gameOver = true;
+    playSound('hit'); // Play hit sound when game ends
     if (tgApp) {
         try {
             tgApp.sendData(JSON.stringify({ score: score }));
@@ -576,13 +604,11 @@ function endGame() {
 }
 
 function restartGame() {
-    // Prefer bird character if assets are loaded
-    currentCharacterIndex = characterTypes.findIndex(ct => ct.type === 'bird' && images.bird?.complete);
-    if (currentCharacterIndex === -1) { // Fallback to cycling if bird asset not ready or not preferred
-        currentCharacterIndex = (characterTypes.indexOf(currentCharacter) + 1) % characterTypes.length;
-    }
+    // Cycle through characters on restart
+    currentCharacterIndex = (currentCharacterIndex + 1) % characterTypes.length;
     currentCharacter = characterTypes[currentCharacterIndex];
     
+    // Reset bird properties
     bird = {
         x: 80,
         y: canvasHeight / 2,
@@ -594,9 +620,11 @@ function restartGame() {
         height: currentCharacter.type === 'bird' ? 30 : currentCharacter.radius * 2
     };
 
-    // Gravity and jumpStrength are reset by updateDifficulty calling for difficulty 1
-    // No need to set them directly here if updateDifficulty handles it.
+    // Reset gravity and jump strength to character defaults
+    gravity = currentCharacter.gravity;
+    jumpStrength = currentCharacter.jumpStrength;
 
+    // Reset all game state
     pipes = [];
     score = 0;
     gameOver = false;
@@ -605,7 +633,9 @@ function restartGame() {
     lastPipeX = -1000;
     groundX = 0;
     backgroundX = 0;
-    difficulty = 0; // Force difficulty update on restart to reset parameters to level 1
+    difficulty = 1; // Start at difficulty 1
+    
+    // Reset difficulty parameters
     updateDifficulty(); 
 }
 
@@ -644,6 +674,7 @@ function handleTap(event) {
         if (bird.type === 'bird') bird.velocity = jumpStrength;
     }
     bird.velocity = jumpStrength;
+    playSound('flap'); // Play flap sound on jump
 }
 
 // Event listeners
@@ -652,34 +683,32 @@ canvas.addEventListener('touchstart', handleTap, { passive: false }); // passive
 
 // Game loop
 function gameLoop() {
+    // Clear canvas with anti-aliasing optimization
     ctx.clearRect(0, 0, canvasWidth, canvasHeight); 
 
+    // Draw game elements
+    drawBackground();
+    
     if (!gameOver) {
-        drawBackground();
         drawPipes();
         drawGround();
         drawBird();
         drawScore();
-        drawGameStartText(); // Only draws if game not started
+        drawGameStartText();
     } else {
-        // If game is over, optionally draw the static game state (or a snapshot)
-        // For simplicity here, we can just draw background and ground for context
-        // or dim the whole game screen and draw game over text on top.
+        // Draw game over state with background context
+        drawPipes(); // Show the pipes that caused game over
+        drawGround();
+        drawBird(); // Show bird in final position
         
-        // Option 1: Draw a semi-transparent overlay, then game over text
-        // ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        // ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        // drawGameOverText();
-
-        // Option 2: Keep background and ground, then Game Over text (as it was, but now exclusive)
-        drawBackground(); // Keep background visible
-        // drawPipes(); // Optionally draw the pipes that caused game over
-        drawGround();   // Keep ground visible
-        // drawBird(); // Optionally draw the bird in its final position
+        // Draw semi-transparent overlay
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
         drawGameOverText();
-        drawScore(); // Re-draw score in game over state as it might be part of drawGameOverText or separate
     }
     
+    // Update game logic only when playing
     if (gameStarted && !gameOver) {
         updateBird();
         updatePipes();
