@@ -7,7 +7,7 @@ if (tgApp) {
 
 // Get canvas and context
 const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d', { alpha: false });
 
 // Sound assets
 const sounds = {
@@ -163,7 +163,13 @@ let score = 0;
 let gameOver = false;
 let gameStarted = false;
 let difficulty = 1; // Start at difficulty 1, not 0
-let frames = 0;
+
+// Delta-time variables for frame-rate independent physics
+let lastFrameTime = 0;
+let dt = 1; // Delta time normalized to 60fps (1.0 = one 16.67ms frame)
+let gameTime = 0; // Accumulated game time in 60fps-frame units
+let pipeSpawnTimer = 0; // Timer for pipe spawning
+let variationTimer = 0; // Timer for speed variation changes
 
 let gravity = currentCharacter.gravity;
 let jumpStrength = currentCharacter.jumpStrength;
@@ -192,9 +198,9 @@ function drawBackground() {
         
         // Scroll background (can be slower than ground for parallax)
         if (gameStarted && !gameOver) {
-             backgroundX -= pipeSpeed / 2; // Example: half speed of pipes
+             backgroundX -= pipeSpeed / 2 * dt;
              if (backgroundX <= -bgWidth) {
-                 backgroundX = 0;
+                 backgroundX += bgWidth;
              }
         }
     } else {
@@ -323,9 +329,9 @@ function drawGround() {
         }
 
         if (gameStarted && !gameOver) {
-            groundX -= pipeSpeed;
+            groundX -= pipeSpeed * dt;
             if (groundX <= -gWidthScaled) {
-                groundX = 0;
+                groundX += gWidthScaled;
             }
         }
     } else {
@@ -359,7 +365,7 @@ function drawScore() {
     ctx.font = `${fontWeight}${fontSize}px Arial`; // Logical font size
 
     if (score > 15) {
-        const pulseAmount = Math.sin(frames / 10) * 0.05 + 1; 
+        const pulseAmount = Math.sin(gameTime / 10) * 0.05 + 1;
         ctx.save();
         ctx.translate(canvasWidth / 2, 50); // Logical position
         ctx.scale(pulseAmount, pulseAmount);
@@ -447,17 +453,19 @@ function updateBird() {
     if (!gameStarted || gameOver) return;
 
     if (score > 5) {
-        if (frames % 60 === 0) {
+        variationTimer += dt;
+        if (variationTimer >= 60) {
+            variationTimer -= 60;
             const variationAmount = 0.2 + (difficulty * 0.05);
             bird.speedVariation = (Math.random() * 2 - 1) * variationAmount;
         }
-        bird.speedVariation *= 0.98;
+        bird.speedVariation *= Math.pow(0.98, dt);
     } else {
         bird.speedVariation = 0;
     }
 
-    bird.velocity += gravity + bird.speedVariation;
-    bird.y += bird.velocity;
+    bird.velocity += (gravity + bird.speedVariation) * dt;
+    bird.y += bird.velocity * dt;
     
     // Collision uses radius for programmatic characters, and width/height for image-based bird
     const birdTop = bird.y - (bird.type === 'bird' ? bird.height / 2 : bird.radius);
@@ -481,7 +489,7 @@ function updatePipes() {
     updateDifficulty();
 
     pipes.forEach(pipe => {
-        pipe.x -= pipeSpeed;
+        pipe.x -= pipeSpeed * dt;
 
         if (!pipe.scored && pipe.x + pipeWidth < bird.x - (bird.type === 'bird' ? bird.width/2 : bird.radius)) {
             pipe.scored = true;
@@ -509,7 +517,8 @@ function updatePipes() {
 
     pipes = pipes.filter(pipe => pipe.x > -pipeWidth);
 
-    let shouldAddPipe = frames % pipeSpawnInterval === 0;
+    pipeSpawnTimer += dt;
+    let shouldAddPipe = pipeSpawnTimer >= pipeSpawnInterval;
     let pipeOnScreen = false;
     let lastPipeFound = false;
     let currentLastPipeX = -Infinity; // Use a more robust way to find the rightmost pipe
@@ -534,6 +543,7 @@ function updatePipes() {
     }
 
     if (shouldAddPipe && canAddPipe) {
+        pipeSpawnTimer = 0;
         const minGapY = 80; // Min distance from top for gap start
         const maxGapYPossible = canvasHeight - groundHeight - gapHeight - 80; // Account for ground height and bottom margin
         let gapY;
@@ -587,7 +597,6 @@ function updateDifficulty() {
             gravity = currentCharacter.gravity + (difficultyFactor * 0.04);
             jumpStrength = currentCharacter.jumpStrength - (difficultyFactor * 0.15); // More negative = stronger jump
         }
-        // console.log(`Difficulty: ${difficulty}, Speed: ${pipeSpeed.toFixed(2)}, Gap: ${gapHeight}, Interval: ${pipeSpawnInterval}, Gravity: ${gravity.toFixed(2)}, Jump: ${jumpStrength.toFixed(2)}`);
     }
 }
 
@@ -629,11 +638,13 @@ function restartGame() {
     score = 0;
     gameOver = false;
     gameStarted = false;
-    frames = 0;
     lastPipeX = -1000;
     groundX = 0;
     backgroundX = 0;
     difficulty = 1; // Start at difficulty 1
+    pipeSpawnTimer = 0;
+    variationTimer = 0;
+    gameTime = 0;
     
     // Reset difficulty parameters
     updateDifficulty(); 
@@ -648,8 +659,10 @@ function handleTap(event) {
         const scaleX = canvasWidth / rect.width;
         const scaleY = canvasHeight / rect.height;
 
-        const clickX = ((event.clientX || event.touches[0].clientX) - rect.left) * scaleX;
-        const clickY = ((event.clientY || event.touches[0].clientY) - rect.top) * scaleY;
+        const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+        const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+        const clickX = (clientX - rect.left) * scaleX;
+        const clickY = (clientY - rect.top) * scaleY;
         
         // Restart button click area (logical coordinates for the new rectangular button)
         const btnWidth = 120; 
@@ -681,14 +694,28 @@ function handleTap(event) {
 canvas.addEventListener('click', handleTap);
 canvas.addEventListener('touchstart', handleTap, { passive: false }); // passive:false for preventDefault
 
-// Game loop
-function gameLoop() {
-    // Clear canvas with anti-aliasing optimization
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight); 
+// Game loop with delta-time for frame-rate independent physics
+function gameLoop(timestamp) {
+    if (!timestamp) timestamp = performance.now();
+    if (lastFrameTime === 0) lastFrameTime = timestamp;
+    const elapsed = timestamp - lastFrameTime;
+    lastFrameTime = timestamp;
+
+    // Normalize to 60fps baseline (16.667ms = dt of 1.0)
+    // Skip frame entirely if tab was backgrounded (>83ms = 5 frames)
+    // Cap at 2x for moderate lag to prevent physics tunneling
+    const rawDt = elapsed / 16.667;
+    if (rawDt > 5) {
+        dt = 0; // Tab was backgrounded, just render without updating
+    } else {
+        dt = Math.min(rawDt, 2);
+    }
+
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     // Draw game elements
     drawBackground();
-    
+
     if (!gameOver) {
         drawPipes();
         drawGround();
@@ -696,25 +723,23 @@ function gameLoop() {
         drawScore();
         drawGameStartText();
     } else {
-        // Draw game over state with background context
-        drawPipes(); // Show the pipes that caused game over
+        drawPipes();
         drawGround();
-        drawBird(); // Show bird in final position
-        
-        // Draw semi-transparent overlay
+        drawBird();
+
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        
+
         drawGameOverText();
     }
-    
+
     // Update game logic only when playing
     if (gameStarted && !gameOver) {
         updateBird();
         updatePipes();
+        gameTime += dt;
     }
 
-    frames++;
     requestAnimationFrame(gameLoop);
 }
 
@@ -742,6 +767,3 @@ window.addEventListener('load', () => {
 });
 window.addEventListener('resize', resizeCanvas);
 
-// Initial call to resize might be needed if load event is slow or for some browsers
-// resizeCanvas(); // This is now called after asset preload
-// gameLoop(); // Moved to after asset preload

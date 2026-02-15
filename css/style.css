@@ -37,9 +37,9 @@ body {
 
 canvas {
     display: block;
-    /* background-color: #71c5cf; /* Redundant as body has the same bg and canvas is centered */
     touch-action: none; /* Prevent all touch gestures on canvas */
     cursor: pointer; /* Show pointer cursor on hover */
     image-rendering: -webkit-optimize-contrast; /* Better image quality */
     image-rendering: crisp-edges;
+    will-change: contents; /* Hint browser to use GPU compositing */
 }
